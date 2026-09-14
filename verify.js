@@ -8,7 +8,7 @@ const { JSDOM } = require("jsdom");
 
 const FILE = process.argv[2] || "인사총무_교육용가상데모.html";
 const BASE = {                       // 기준값 (PRD.md 4-2절 / 3-1절)
-  "직원": 28, "휴가": 50, "자산": 35, "소모품": 12, "카드내역": 60, "이력": 20,
+  "직원": 28, "휴가": 50, "자산": 35, "소모품": 12, "카드내역": 60, "이력": 20, "급여": 73,
   "승인 대기 휴가": 10, "증빙 미제출": 5, "반납 지연 자산": 3,
   "연차 촉진 처리": 5, "이번 달 인사 이벤트": 3,
 };
@@ -48,6 +48,7 @@ setTimeout(() => {
   check("소모품", W.DB.supplies.length, BASE["소모품"]);
   check("카드내역", W.DB.spends.length, BASE["카드내역"]);
   check("이력", W.DB.logs.length, BASE["이력"]);
+  check("급여", W.DB.pays.length, BASE["급여"]);
 
   console.log("\n[처리할 것]");
   qa("#pane-home .todo").forEach((b) => {
@@ -65,6 +66,8 @@ setTimeout(() => {
   const minus = W.DB.emps.filter((e) => e.status !== "퇴사"
     && W.grantDays(e) - W.usedDays(e.id) < 0).length;
   check("연차 마이너스", minus, 0);
+  const payBad = W.DB.pays.filter((x) => x.gross - x.ded !== x.net).length;
+  check("급여 산식 오류", payBad, 0);
   const edu = /교육용 가상 자료/.test(D.body.textContent) ? 1 : 0;
   check("교육용 표기", edu, 1);
 

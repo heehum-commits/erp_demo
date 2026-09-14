@@ -206,6 +206,7 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums}
   <section class="tabpane" id="pane-home"></section>
   <section class="tabpane" id="pane-emp"></section>
   <section class="tabpane" id="pane-leave"></section>
+  <section class="tabpane" id="pane-pay"></section>
   <section class="tabpane" id="pane-asset"></section>
   <section class="tabpane" id="pane-card"></section>
 </main>
@@ -490,16 +491,80 @@ var LTYPES=["연차","반차","병가","경조사","공가"];
 var ACATS=["IT기기","사무가구","기타"];
 var ASTATUS=["보관중","불출중","수리중","폐기"];
 var ACCTS=["접대비","복리후생비","소모품비","여비교통비","통신비","차량유지비"];
+
+/* ---- 급여 기준 (교육용 가정) ---- */
+var PAY_MONTHS=["2026-07","2026-08","2026-09"];
+var PAY_WORKDAYS={"2026-07":23,"2026-08":21,"2026-09":22};   /* 그 달 평일 수 */
+var PAY_BASE={"이사":6000000,"부장":5000000,"차장":4500000,"과장":4000000,
+              "대리":3300000,"주임":2900000,"사원":2500000};
+var PAY_DUTY={"이사":500000,"부장":300000,"차장":200000,"과장":150000};
+var PAY_MEAL=200000;                 /* 식대 — 월 20만원까지 비과세 */
+var PAY_BONUS_MONTH="2026-07";       /* 하계휴가비를 주는 달 */
+var PAY_BONUS=300000;                /* 정규직만 지급 */
+var PAY_RATE={연금:0.045, 건강:0.03545, 요양:0.1295, 고용:0.009, 소득세:0.03, 지방세:0.1};
+
+/* 사람별 연장근로수당 [7월, 8월, 9월] — 퇴사·휴직자는 목록에 없음 */
+var RAW_PAY_OT=[
+["HB0101",0,0,0],["HB0102",180000,120000,150000],["HB0104",240000,180000,210000],
+["HB0105",120000,90000,60000],["HB0201",0,0,0],["HB0202",150000,200000,170000],
+["HB0203",210000,160000,190000],["HB0204",260000,230000,240000],["HB0205",180000,150000,200000],
+["HB0206",140000,170000,130000],["HB0301",0,0,0],["HB0302",220000,190000,210000],
+["HB0303",280000,240000,260000],["HB0305",300000,270000,250000],["HB0306",230000,200000,220000],
+["HB0307",190000,160000,180000],["HB0308",210000,180000,200000],["HB0401",170000,150000,160000],
+["HB0402",200000,180000,190000],["HB0403",240000,210000,230000],["HB0404",0,0,80000],
+["HB0501",0,0,0],["HB0502",190000,170000,180000],["HB0504",220000,200000,210000],
+["HB0505",200000,180000,190000]
+];
 var DEDUCT={"연차":1,"반차":1};   /* 연차에서 차감하는 유형 */
 
 /* =========================== 데이터 =========================== */
 var DB=null;
+/* 그 달에 급여가 나가는가 — 입사 전·퇴사 후·휴직 중은 제외 */
+function payEligible(e, mk){
+  if(e.status==="휴직") return false;
+  var first=d(mk+"-01"), last=new Date(+mk.slice(0,4), +mk.slice(5,7), 0);
+  if(d(e.hire) > last) return false;
+  if(e.out && d(e.out) < first) return false;
+  return true;
+}
+/* 급여 한 줄 계산 — 계산 결과를 그때 값으로 저장한다 (나중에 다시 계산하지 않음) */
+function makePay(e, mk, ot){
+  var basic=PAY_BASE[e.rank]||0, duty=PAY_DUTY[e.rank]||0;
+  var bonus=(mk===PAY_BONUS_MONTH && e.etype==="정규직") ? PAY_BONUS : 0;
+  var gross=basic+PAY_MEAL+duty+ot+bonus;
+  var taxable=gross-PAY_MEAL;
+  var pension=Math.round(taxable*PAY_RATE["연금"]);
+  var health=Math.round(taxable*PAY_RATE["건강"]);
+  var care=Math.round(health*PAY_RATE["요양"]);
+  var empIns=Math.round(taxable*PAY_RATE["고용"]);
+  var tax=Math.round(taxable*PAY_RATE["소득세"]);
+  var localTax=Math.round(tax*PAY_RATE["지방세"]);
+  var ded=pension+health+care+empIns+tax+localTax;
+  return { id:"PAY-"+mk.replace("-","")+"-"+e.id.slice(2), emp:e.id, month:mk,
+    payday:mk+"-25", basic:basic, meal:PAY_MEAL, duty:duty, ot:ot, bonus:bonus,
+    gross:gross, taxable:taxable,
+    pension:pension, health:health, care:care, empIns:empIns, tax:tax, localTax:localTax,
+    ded:ded, net:gross-ded, workDays:PAY_WORKDAYS[mk]||22, absent:0 };
+}
+function buildPays(emps){
+  var byId={}; emps.forEach(function(e){ byId[e.id]=e; });
+  var out=[];
+  RAW_PAY_OT.forEach(function(r){
+    var e=byId[r[0]]; if(!e) return;
+    PAY_MONTHS.forEach(function(mk,i){
+      if(!payEligible(e,mk)) return;
+      out.push(makePay(e, mk, r[i+1]||0));
+    });
+  });
+  return out.sort(function(a,b){ return a.month===b.month ? (a.emp<b.emp?-1:1) : (a.month<b.month?1:-1); });
+}
 function buildSeed(){
-  return {
-    emps: RAW_EMP.map(function(r,i){ return {
+  var emps = RAW_EMP.map(function(r,i){ return {
       id:r[0],name:r[1],dept:r[2],rank:r[3],etype:r[4],hire:r[5],
       status:r[6],out:r[7],memo:r[8],promo:"통보 전",
-      phone:"010-0000-"+pad4(i+1), email:r[0].toLowerCase()+"@hanbit-demo.example" }; }),
+      phone:"010-0000-"+pad4(i+1), email:r[0].toLowerCase()+"@hanbit-demo.example" }; });
+  return {
+    emps: emps,
     leaves: RAW_LEAVE.map(function(r){ return {
       id:r[0],emp:r[1],type:r[2],s:r[3],e:r[4],days:r[5],reason:r[6],status:r[7],req:r[8] }; }),
     assets: RAW_ASSET.map(function(r){ return {
@@ -512,14 +577,17 @@ function buildSeed(){
     cards: RAW_CARD.map(function(r){ return {
       id:r[0],last4:r[1],dept:r[2],owner:r[3] }; }),
     spends: RAW_SPEND.map(function(r){ return {
-      id:r[0],date:r[1],card:r[2],emp:r[3],merchant:r[4],acct:r[5],amount:r[6],proof:r[7] }; })
+      id:r[0],date:r[1],card:r[2],emp:r[3],merchant:r[4],acct:r[5],amount:r[6],proof:r[7] }; }),
+    pays: buildPays(emps)
   };
 }
 function save(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(DB)); }catch(e){} }
 function load(){
   try{
     var raw=localStorage.getItem(STORE_KEY);
-    if(raw){ var o=JSON.parse(raw); if(o && o.emps && o.emps.length){ DB=o; return; } }
+    if(raw){ var o=JSON.parse(raw); if(o && o.emps && o.emps.length){
+      if(!o.pays) o.pays=buildPays(o.emps);      /* 급여 탭 추가 이전 저장본 보정 */
+      DB=o; return; } }
   }catch(e){}
   DB=buildSeed();
 }
@@ -614,17 +682,18 @@ var DEF={
   emp:{dept:"전체",status:"재직",etype:"전체",event:"전체",q:""},
   leave:{status:"전체",dept:"전체",type:"전체",q:"",
          month:TODAY.getFullYear()+"-"+(TODAY.getMonth()+1<10?"0":"")+(TODAY.getMonth()+1)},
+  pay:{month:"전체",dept:"전체",q:""},
   asset:{cat:"전체",status:"전체",q:""},
   card:{month:"전체",dept:"전체",acct:"전체",proof:"전체",q:""}
 };
-var S={tab:"home",emp:{},leave:{},asset:{},card:{}};
-function resetState(){ ["emp","leave","asset","card"].forEach(function(g){
+var S={tab:"home",emp:{},leave:{},pay:{},asset:{},card:{}};
+function resetState(){ ["emp","leave","pay","asset","card"].forEach(function(g){
   S[g]={}; for(var k in DEF[g]) S[g][k]=DEF[g][k]; }); }
 resetState();
 
 function writeHash(){
   var p=["tab="+S.tab];
-  ["emp","leave","asset","card"].forEach(function(g){
+  ["emp","leave","pay","asset","card"].forEach(function(g){
     for(var k in DEF[g]) if(S[g][k]!==DEF[g][k]) p.push(g+"."+k+"="+encodeURIComponent(S[g][k]));
   });
   var h="#"+p.join("&");
@@ -672,6 +741,7 @@ var TABS=[
   {k:"home", n:"홈"},
   {k:"emp",  n:"인사기록", cnt:function(){ return hrEvents().length; }},
   {k:"leave",n:"근태·휴가", cnt:function(){ return DB.leaves.filter(function(l){return l.status==="대기";}).length; }},
+  {k:"pay",  n:"급여"},
   {k:"asset",n:"비품·자산", cnt:function(){ return DB.assets.filter(assetLate).length; }},
   {k:"card", n:"법인카드", cnt:function(){ return DB.spends.filter(proofOverdue).length; }}
 ];
@@ -694,6 +764,8 @@ function renderHome(){
   var mKey = TODAY.getFullYear()+"-"+(TODAY.getMonth()+1<10?"0":"")+(TODAY.getMonth()+1);
   var mSpend = DB.spends.filter(function(s){ return s.date.slice(0,7)===mKey; });
   var mSum = mSpend.reduce(function(a,s){ return a+Number(s.amount); },0);
+  var mPay = DB.pays.filter(function(x){ return x.month===mKey; });
+  var mPaySum = mPay.reduce(function(a,x){ return a+x.gross; },0);
   var ev = hrEvents();
   var inCnt = ev.filter(function(x){return x.kind==="입사";}).length;
   var outCnt= ev.filter(function(x){return x.kind==="퇴사";}).length;
@@ -709,7 +781,7 @@ function renderHome(){
     }).join("")+'</div>';
 
   h+='<div class="sec-h"><h2>한눈에 보기</h2></div>';
-  h+='<div class="grid g4">'
+  h+='<div class="grid gauto">'
     +'<div class="kpi"><div class="lab">재직 인원</div><div class="num">'+working+'<small> 명</small></div>'
       +'<div class="sub">휴직 '+rest+'명 · 퇴사 '+left+'명 (명부 전체 '+DB.emps.length+'명)</div></div>'
     +'<div class="kpi"><div class="lab">이번 달 입·퇴사</div><div class="num">'+inCnt+'<small> / </small>'+outCnt+'</div>'
@@ -718,6 +790,8 @@ function renderHome(){
       +'<div class="sub">사용 '+u+'일 ÷ 부여 '+g+'일 (재직·휴직 '+act.length+'명 기준)</div></div>'
     +'<div class="kpi"><div class="lab">이번 달 카드 사용액</div><div class="num">'+nf(mSum)+'<small> 원</small></div>'
       +'<div class="sub">'+mSpend.length+'건 ('+mKey+')</div></div>'
+    +'<div class="kpi"><div class="lab">이번 달 인건비</div><div class="num">'+nf(mPaySum)+'<small> 원</small></div>'
+      +'<div class="sub">지급총액 · '+mPay.length+'명분 ('+mKey+')</div></div>'
     +'</div>';
 
   /* 부서별 연차 소진율 */
@@ -1015,6 +1089,109 @@ function renderLeave(){
   $("#pane-leave").innerHTML=h;
 }
 
+/* =========================== 급여 (보기 전용) =========================== */
+function payFiltered(){
+  var q=S.pay.q.trim();
+  return DB.pays.filter(function(x){
+    if(S.pay.month!=="전체" && x.month!==S.pay.month) return false;
+    if(S.pay.dept!=="전체" && empDept(x.emp)!==S.pay.dept) return false;
+    if(q && (empName(x.emp)+x.emp+x.id).indexOf(q)<0) return false;
+    return true;
+  });
+}
+function payMonths(){
+  var m={}; DB.pays.forEach(function(x){ m[x.month]=1; });
+  return Object.keys(m).sort().reverse();
+}
+function renderPay(){
+  var list=payFiltered();
+  var gross=list.reduce(function(a,x){ return a+x.gross; },0);
+  var net=list.reduce(function(a,x){ return a+x.net; },0);
+  var h='';
+  h+='<div class="sec-h"><h2>급여 대장</h2>'
+    +'<p>보기 전용입니다 — 이 탭에서는 금액을 고치지 않습니다 · 이름을 누르면 급여명세서가 열립니다</p></div>';
+  h+='<div class="bar no-print">'
+    + sel("pay","month",["전체"].concat(payMonths()),"귀속월")
+    + sel("pay","dept",["전체"].concat(DEPTS),"부서")
+    + searchBox("pay","이름 · 사번")
+    + '</div>';
+  h+='<div class="note" style="margin:0 0 8px">표시 '+list.length+'건 · 지급총액 <b>'+nf(gross)
+    +'원</b> · 실지급액 <b>'+nf(net)+'원</b> / 전체 '+DB.pays.length+'건</div>';
+  h+='<div class="tw"><table><thead><tr><th>귀속월</th><th>사번</th><th>이름</th><th>부서</th><th>직급</th>'
+    +'<th class="num">지급총액</th><th class="num">공제총액</th><th class="num">실지급액</th>'
+    +'<th class="no-print">명세서</th></tr></thead><tbody>';
+  if(!list.length) h+='<tr><td colspan="9" class="empty">조건에 맞는 급여 기록이 없습니다.</td></tr>';
+  list.forEach(function(x){
+    var e=empById(x.emp);
+    h+='<tr><td>'+esc(x.month)+'</td><td>'+esc(x.emp)+'</td>'
+      +'<td><button class="lnk" data-act="pay-view" data-id="'+x.id+'">'+avatar(empName(x.emp))+'</button></td>'
+      +'<td>'+esc(empDept(x.emp))+'</td><td>'+esc(e?e.rank:"-")+'</td>'
+      +'<td class="num">'+nf(x.gross)+'</td><td class="num" style="color:var(--muted)">'+nf(x.ded)+'</td>'
+      +'<td class="num"><b>'+nf(x.net)+'</b></td>'
+      +'<td class="no-print"><button class="btn sm" data-act="pay-view" data-id="'+x.id+'">보기</button></td></tr>';
+  });
+  h+='</tbody></table></div>';
+  h+='<div class="note">급여는 <b>확정된 그때의 금액을 그대로 보관</b>합니다. '
+    +'나중에 직급이나 기본급이 바뀌어도 지난 달 급여는 다시 계산하지 않습니다.</div>';
+
+  var mx1=1, mrows=payMonths().slice().sort().map(function(m){
+    var ls=DB.pays.filter(function(x){ return x.month===m; });
+    var v=ls.reduce(function(a,x){ return a+x.gross; },0);
+    if(v>mx1) mx1=v; return {k:m,n:ls.length,v:v}; });
+  var mx2=1, drows=DEPTS.map(function(dp){
+    var ls=DB.pays.filter(function(x){ return empDept(x.emp)===dp; });
+    var v=ls.reduce(function(a,x){ return a+x.gross; },0);
+    if(v>mx2) mx2=v; return {k:dp,n:ls.length,v:v}; }).sort(function(a,b){ return b.v-a.v; });
+  h+='<div class="sec-h"><h2>인건비 집계</h2><p>지급총액 기준 · 전체 '+DB.pays.length+'건</p></div>';
+  h+='<div class="grid g2">';
+  h+='<div class="card"><h3 style="font-size:15px;margin-bottom:12px">월별 인건비</h3><div class="bars">'
+    + mrows.map(function(r){ return '<div class="brow"><div>'+esc(r.k)+' <span style="color:var(--muted)">'+r.n+'명</span></div>'
+        +'<div class="btrack"><div class="bfill" style="width:'+Math.max(2,Math.round(r.v/mx1*100))+'%"></div></div>'
+        +'<div class="v">'+nf(r.v)+'원</div></div>'; }).join("")
+    + '</div><div class="note">7월은 정규직 하계휴가비 '+nf(PAY_BONUS)+'원이 더해져 있습니다.</div></div>';
+  h+='<div class="card"><h3 style="font-size:15px;margin-bottom:12px">부서별 인건비</h3><div class="bars">'
+    + drows.map(function(r){ return '<div class="brow"><div>'+esc(r.k)+'</div>'
+        +'<div class="btrack"><div class="bfill" style="width:'+Math.max(2,Math.round(r.v/mx2*100))+'%"></div></div>'
+        +'<div class="v">'+nf(r.v)+'원</div></div>'; }).join("")
+    + '</div><div class="note">3개월 합계 기준입니다.</div></div>';
+  h+='</div>';
+  h+='<div class="callout">급여 줄이 없는 사람이 있습니다 — <b>급여 기간 이전에 퇴사한 사람과 휴직자</b>입니다. '
+    +'육아휴직은 회사 급여가 나가지 않으므로 줄이 만들어지지 않습니다. '
+    +'또한 <b>소득세 3%는 교육용 단순 가정</b>이며, 실제로는 간이세액표를 부양가족 수와 함께 봐야 합니다. '
+    +'4대보험 요율도 해마다 바뀝니다.</div>';
+  $("#pane-pay").innerHTML=h;
+}
+function payView(id){
+  var x=null; DB.pays.forEach(function(p){ if(p.id===id) x=p; }); if(!x) return;
+  var e=empById(x.emp);
+  var row=function(k,v,strong){ return '<tr><td>'+esc(k)+'</td><td class="num"'
+    +(strong?' style="font-weight:600;color:var(--ink)"':'')+'>'+nf(v)+'</td></tr>'; };
+  var b='<dl class="dl">'
+    +'<dt>대상</dt><dd>'+esc(empName(x.emp))+' ('+esc(x.emp)+') · '+esc(empDept(x.emp))+' · '+esc(e?e.rank:"-")+'</dd>'
+    +'<dt>귀속월</dt><dd>'+esc(x.month)+'</dd>'
+    +'<dt>지급일</dt><dd>'+esc(x.payday)+'</dd>'
+    +'<dt>근무일수</dt><dd>'+x.workDays+'일 (결근 '+x.absent+'일)</dd></dl>';
+  b+='<h4 style="margin:16px 0 8px;font-size:14px">지급 항목</h4>'
+    +'<div class="tw"><table style="min-width:0"><tbody>'
+    + row("기본급",x.basic) + row("식대 (비과세)",x.meal)
+    + (x.duty? row("직책수당",x.duty):"") + (x.ot? row("연장근로수당",x.ot):"")
+    + (x.bonus? row("하계휴가비",x.bonus):"")
+    + row("지급총액",x.gross,true) + '</tbody></table></div>';
+  b+='<h4 style="margin:16px 0 8px;font-size:14px">공제 항목</h4>'
+    +'<div class="tw"><table style="min-width:0"><tbody>'
+    + row("국민연금 (4.5%)",x.pension) + row("건강보험 (3.545%)",x.health)
+    + row("장기요양 (건강보험의 12.95%)",x.care) + row("고용보험 (0.9%)",x.empIns)
+    + row("소득세 (3% · 교육용 가정)",x.tax) + row("지방소득세 (소득세의 10%)",x.localTax)
+    + row("공제총액",x.ded,true) + '</tbody></table></div>';
+  b+='<div class="grid" style="margin-top:16px"><div class="kpi">'
+    +'<div class="lab">실지급액 (지급총액 − 공제총액)</div>'
+    +'<div class="num">'+nf(x.net)+'<small> 원</small></div>'
+    +'<div class="sub">과세대상액 '+nf(x.taxable)+'원 = 지급총액 − 식대 '+nf(x.meal)+'원</div></div></div>';
+  b+='<div class="callout">교육용 가상 급여명세서입니다. 실제 급여·세액과 무관합니다.</div>';
+  openModal(empName(x.emp)+" "+x.month+" 급여명세서 (가상)", b,
+    '<button class="btn" data-act="close">닫기</button>');
+}
+
 /* =========================== 비품·자산 =========================== */
 function assetFiltered(){
   var q=S.asset.q.trim();
@@ -1252,6 +1429,8 @@ function empView(id){
   var e=empById(id); if(!e) return;
   var g=grantDays(e), u=usedDays(e.id), o=otherDays(e.id);
   var mine=DB.assets.filter(function(a){ return a.holder===id; });
+  var mypay=DB.pays.filter(function(x){ return x.emp===id; })
+    .sort(function(a,b){ return a.month<b.month?1:-1; }).slice(0,3);
   var spends=DB.spends.filter(function(s){ return s.emp===id; })
     .sort(function(a,b){ return a.date<b.date?1:-1; }).slice(0,5);
   var lv=DB.leaves.filter(function(l){ return l.emp===id; })
@@ -1275,6 +1454,14 @@ function empView(id){
   b+= lv.length? '<div class="tw"><table style="min-width:0"><tbody>'+lv.map(function(l){
       return '<tr><td>'+esc(l.s)+'</td><td>'+esc(l.type)+'</td><td class="num">'+l.days+'일</td><td>'+esc(l.status)+'</td></tr>';
     }).join("")+'</tbody></table></div>' : '<div class="note">신청 내역이 없습니다.</div>';
+  b+='<h4 style="margin:18px 0 8px;font-size:14px">최근 급여</h4>';
+  b+= mypay.length? '<div class="tw"><table style="min-width:0"><tbody>'+mypay.map(function(x){
+      return '<tr><td>'+esc(x.month)+'</td><td class="num">'+nf(x.gross)+'원</td>'
+        +'<td class="num" style="color:var(--muted)">-'+nf(x.ded)+'</td>'
+        +'<td class="num"><b>'+nf(x.net)+'원</b></td>'
+        +'<td><button class="lnk" data-act="pay-view" data-id="'+x.id+'">명세서</button></td></tr>';
+    }).join("")+'</tbody></table></div>'
+    : '<div class="note">급여 기록이 없습니다. (급여 기간 이전 퇴사자이거나 휴직 중입니다)</div>';
   b+='<h4 style="margin:18px 0 8px;font-size:14px">보유 자산 '+mine.length+'점</h4>';
   b+= mine.length? '<div class="tw"><table style="min-width:0"><tbody>'+mine.map(function(a){
       return '<tr><td>'+esc(a.id)+'</td><td>'+esc(a.item)+'</td><td>'+esc(a.model)+'</td>'
@@ -1496,6 +1683,7 @@ document.addEventListener("click", function(ev){
   }
   if(a==="lv-del"){ if(!confirm("이 휴가 신청을 삭제할까요?")) return; delById(DB.leaves,id); save(); render(); return; }
   /* 자산 */
+  if(a==="pay-view"){ payView(id); return; }
   if(a==="as-new"){ assetForm(null); return; }
   if(a==="as-edit"){ var ax=null; DB.assets.forEach(function(x){ if(x.id===id) ax=x; }); assetForm(ax); return; }
   if(a==="as-out"){ assetOutForm(id); return; }
@@ -1548,8 +1736,8 @@ $("#btnTheme").addEventListener("click", function(){
 /* =========================== 그리기 =========================== */
 function render(){
   renderTabs();
-  renderHome(); renderEmp(); renderLeave(); renderAsset(); renderCard();
-  ["home","emp","leave","asset","card"].forEach(function(k){
+  renderHome(); renderEmp(); renderLeave(); renderPay(); renderAsset(); renderCard();
+  ["home","emp","leave","pay","asset","card"].forEach(function(k){
     var el=$("#pane-"+k); if(el) el.classList.toggle("on", S.tab===k);
   });
   writeHash();
