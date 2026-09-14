@@ -268,8 +268,52 @@ def call_gemini(api_key, prompt):
 
 # ────────────────────────────────── 4. 실행
 
+MENU = [
+    ("1", "전체", "전체 브리핑   (오늘 처리할 것 모두)"),
+    ("2", "휴가", "휴가 · 근태"),
+    ("3", "자산", "비품 · 자산"),
+    ("4", "카드", "법인카드 · 경비"),
+    ("5", "급여", "급여 · 인건비"),
+]
+
+
+def choose_topic():
+    """번호를 골라 주제를 정한다. (더블클릭으로 실행했을 때)"""
+    print()
+    print("  " + "=" * 56)
+    print("   인사·총무 요약   -   교육용 가상 자료")
+    print("  " + "=" * 56)
+    print()
+    for number, _, label in MENU:
+        print(f"    {number}. {label}")
+    print("    0. 끝내기")
+    print()
+    try:
+        answer = input("  번호를 누르고 엔터 (그냥 엔터 = 1) : ").strip()
+    except (EOFError, KeyboardInterrupt):
+        return None
+    if answer == "0":
+        return None
+    if answer == "":
+        answer = "1"
+    for number, topic, _ in MENU:
+        if answer == number:
+            return topic
+    print()
+    print(f"  '{answer}' 는 없는 번호입니다. 1~5 중에서 골라주세요.")
+    return choose_topic()
+
+
 def main():
-    topic = (sys.argv[1] if len(sys.argv) > 1 else "전체").strip()
+    args = sys.argv[1:]
+    if args and args[0] == "--menu":
+        topic = choose_topic()
+        if topic is None:
+            print()
+            print("  끝냅니다.")
+            return 0
+    else:
+        topic = (args[0] if args else "전체").strip()
 
     print("=" * 64)
     print("  인사·총무 요약  (교육용 가상 자료 — 실제 인사 자료가 아닙니다)")
