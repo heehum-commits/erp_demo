@@ -157,6 +157,12 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums}
 .dl dt{color:var(--muted); font-size:12px}
 .dl dd{margin:0; color:var(--ink)}
 
+/* AI 브리핑 */
+.pre{white-space:pre-wrap; word-break:break-all; font-size:12px; color:var(--body);
+  background:var(--soft); border:1px solid var(--line); border-radius:var(--r);
+  padding:10px 12px; margin:0; overflow-x:auto; max-height:240px; overflow-y:auto}
+.ai-out{white-space:pre-wrap; font-size:13.5px; color:var(--ink); line-height:1.7}
+
 /* 날짜별 부재 인원 막대 */
 .absw{overflow-x:auto}
 .absbody{min-width:620px}
@@ -753,6 +759,171 @@ function renderTabs(){
   }).join("");
 }
 
+/* =========================== AI 브리핑 =========================== */
+/* 키는 이 브라우저에만 저장한다. 앱 파일(index.html)에는 절대 들어가지 않는다. */
+var AI_KEY_STORE = STORE_KEY + "_aikey";
+var AI_MODELS = ["gemini-flash-latest", "gemini-3.6-flash", "gemini-2.5-pro"];
+
+function aiKey(){ try{ return localStorage.getItem(AI_KEY_STORE) || ""; }catch(e){ return ""; } }
+function aiKeySet(v){
+  try{ if(v) localStorage.setItem(AI_KEY_STORE, v); else localStorage.removeItem(AI_KEY_STORE); }catch(e){}
+}
+function aiKeyMask(k){ return (!k || k.length < 10) ? "****" : k.slice(0,4)+"********"+k.slice(-4); }
+
+/* 화면에 보이는 숫자를 그대로 모은다 — 계산은 앱이 하고, AI 는 문장만 다듬는다 */
+function aiFacts(){
+  var L = [];
+  L.push("기준일 " + ymd(TODAY));
+  L.push("");
+  L.push("[오늘 처리할 것]");
+  TODOS.forEach(function(t){ L.push("- " + t.label + " " + t.list().length + t.unit); });
+
+  var wait = DB.leaves.filter(function(l){ return l.status === "대기"; })
+    .sort(function(a,b){ return a.s < b.s ? -1 : 1; });
+  L.push("");
+  L.push("[승인 대기 휴가 " + wait.length + "건]");
+  wait.forEach(function(l){
+    L.push("- " + empName(l.emp) + "(" + empDept(l.emp) + ") " + l.type + " "
+      + (l.s === l.e ? l.s : l.s + "~" + l.e) + " " + l.days + "일 / 사유 " + l.reason);
+  });
+
+  var base = DB.emps.filter(function(e){ return e.status === "재직"; }).length;
+  var cnt = {};
+  DB.leaves.forEach(function(l){
+    if(l.status === "반려") return;
+    var a = d(l.s), z = d(l.e);
+    for(var t = new Date(a); t <= z; t.setDate(t.getDate() + 1)) {
+      var k = ymd(t); cnt[k] = (cnt[k] || 0) + 1;
+    }
+  });
+  var top = Object.keys(cnt).map(function(k){ return {k:k, n:cnt[k]}; })
+    .sort(function(a,b){ return b.n - a.n || (a.k < b.k ? -1 : 1); }).slice(0,5);
+  L.push("");
+  L.push("[사람이 가장 많이 빠지는 날] 재직 " + base + "명 기준");
+  top.forEach(function(x){ L.push("- " + x.k + " " + x.n + "명 (재직 대비 " + Math.round(x.n/base*100) + "%)"); });
+
+  var late = DB.assets.filter(assetLate);
+  L.push("");
+  L.push("[반납 지연 자산 " + late.length + "점]");
+  late.forEach(function(a){
+    L.push("- " + a.id + " " + a.item + " / " + empName(a.holder)
+      + " / 반납예정 " + a.due + " (" + daysBetween(d(a.due), TODAY) + "일 지남)");
+  });
+
+  var over = DB.spends.filter(proofOverdue);
+  L.push("");
+  L.push("[증빙 미제출 14일 경과 " + over.length + "건]");
+  over.forEach(function(x){
+    L.push("- " + x.date + " " + empName(x.emp) + "(" + empDept(x.emp) + ") " + x.merchant
+      + " " + nf(x.amount) + "원 / " + x.acct + " / " + daysBetween(d(x.date), TODAY) + "일 경과");
+  });
+
+  var low = DB.supplies.filter(function(p){ return p.stock < p.safe; });
+  L.push("");
+  L.push("[안전재고 미달 소모품 " + low.length + "품목]");
+  low.forEach(function(p){ L.push("- " + p.name + " " + p.stock + p.unit + " (안전재고 " + p.safe + ")"); });
+
+  var pts = promoTargets();
+  L.push("");
+  L.push("[연차 촉진 대상 " + pts.length + "명]");
+  pts.forEach(function(x){ L.push("- " + x.e.name + "(" + x.e.dept + ") 잔여 " + x.r + "일 / 소진율 " + x.p + "%"); });
+
+  return L.join("\n");
+}
+
+var AI_PROMPT_HEAD =
+  "당신은 중소 물류회사의 인사·총무 담당자를 돕는 조수입니다.\n\n"
++ "아래는 시스템이 직접 센 사실입니다.\n\n";
+var AI_PROMPT_TAIL =
+  "\n\n이 사실만 사용해서 담당자에게 보고하듯 정리해 주세요.\n\n"
++ "규칙\n"
++ "- 위에 없는 숫자나 사람 이름을 새로 만들지 마세요.\n"
++ "- 계산을 다시 하지 마세요. 숫자는 그대로 인용하세요.\n"
++ "- 5줄 이내로, 각 줄은 '무엇이 문제인지 + 무엇을 하면 되는지' 형태로 쓰세요.\n"
++ "- 가장 급한 것부터 쓰세요.\n"
++ "- 존댓말로, 전문용어는 쉽게 풀어서 쓰세요.\n";
+
+/* 붐비면(503) 두 번 더 시도하고, 그래도 안 되면 다음 모델로 넘어간다 */
+function aiAsk(prompt, done){
+  var idx = 0, tries = 0;
+  function go(){
+    var model = AI_MODELS[idx];
+    var url = "https://generativelanguage.googleapis.com/v1beta/models/"
+      + model + ":generateContent?key=" + encodeURIComponent(aiKey());
+    fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+    }).then(function(res){
+      return res.json().then(function(json){
+        if(res.status === 503) throw { busy: true };
+        if(!res.ok) throw { msg: (json.error && json.error.message) || ("HTTP " + res.status) };
+        return json;
+      });
+    }).then(function(json){
+      var text = "";
+      try{
+        text = json.candidates[0].content.parts.map(function(p){ return p.text || ""; }).join("");
+      }catch(e){}
+      done(null, { model: model, text: text.trim() });
+    }).catch(function(err){
+      if(err && err.busy){
+        if(tries < 2){ tries++; setTimeout(go, 2000); return; }
+        tries = 0; idx++;
+        if(idx < AI_MODELS.length){ setTimeout(go, 500); return; }
+        done({ msg: "모든 모델이 붐빕니다. 잠시 뒤 다시 시도해 주세요." });
+        return;
+      }
+      done(err && err.msg ? err : { msg: String((err && err.message) || err) });
+    });
+  }
+  go();
+}
+
+function aiKeyForm(){
+  var cur = aiKey();
+  var b = '<div class="callout">'
+    + '이 키는 <b>이 브라우저에만</b> 저장됩니다. 앱 파일(index.html)에는 들어가지 않으므로 '
+    + '파일을 다른 사람에게 줘도 키가 함께 가지 않습니다. 다른 PC에서는 다시 넣어야 합니다.'
+    + '</div>'
+    + '<div class="fgrid"><label class="fl full">Gemini API 키'
+    + '<input type="text" id="f-aikey" value="' + esc(cur) + '" placeholder="예: AIza... 또는 AQ...">'
+    + '</label></div>'
+    + '<div class="note">키 발급: https://aistudio.google.com/apikey<br>'
+    + (cur ? '지금 저장된 키: <b>' + esc(aiKeyMask(cur)) + '</b>' : '아직 저장된 키가 없습니다.')
+    + '</div>';
+  openModal("AI 기능 설정", b,
+    '<button class="btn" data-act="close">취소</button>'
+    + (cur ? '<button class="btn danger" data-act="ai-key-clear">키 지우기</button>' : '')
+    + '<button class="btn pri" data-act="ai-key-save">저장</button>');
+}
+
+function aiBrief(){
+  if(!aiKey()){ aiKeyForm(); return; }
+  var facts = aiFacts();
+  openModal("AI 브리핑 (교육용 가상 데이터 기준)",
+    '<div id="aiBody"><div class="note">Gemini 에게 정리를 맡기는 중입니다. 몇 초 걸립니다...</div></div>',
+    '<button class="btn" data-act="ai-key-form">키 설정</button>'
+    + '<button class="btn" data-act="close">닫기</button>');
+  aiAsk(AI_PROMPT_HEAD + facts + AI_PROMPT_TAIL, function(err, res){
+    var box = document.getElementById("aiBody");
+    if(!box) return;
+    if(err){
+      box.innerHTML = '<div class="callout" style="border-left-color:var(--err)">'
+        + '<b>AI 정리에 실패했습니다.</b><br>' + esc(err.msg || "알 수 없는 오류") + '<br><br>'
+        + '키가 맞는지, 인터넷이 되는지 확인해 주세요. 아래 숫자는 그대로 쓰실 수 있습니다.</div>'
+        + '<pre class="pre">' + esc(facts) + '</pre>';
+      return;
+    }
+    box.innerHTML = '<div class="ai-out">' + esc(res.text || "(답이 비어 있습니다)") + '</div>'
+      + '<div class="note">위 문장은 <b>' + esc(res.model) + '</b> 이(가) 아래 숫자만 보고 쓴 것입니다. '
+      + '숫자는 앱이 직접 셌으므로 화면 값과 같습니다.</div>'
+      + '<h4 style="margin:14px 0 8px;font-size:14px">바탕이 된 숫자</h4>'
+      + '<pre class="pre">' + esc(facts) + '</pre>'
+      + '<div class="callout">교육용 가상 데이터를 요약한 결과입니다. 실제 인사 판단에 쓰지 마세요.</div>';
+  });
+}
+
 /* =========================== 홈 =========================== */
 function renderHome(){
   var act = DB.emps.filter(function(e){ return e.status!=="퇴사"; });
@@ -780,6 +951,12 @@ function renderHome(){
         +'<div class="sub">'+esc(t.sub)+'</div></button>';
     }).join("")+'</div>';
 
+  h+='<div class="bar no-print" style="margin-top:14px">'
+    +'<button class="btn pri" data-act="ai-brief">AI로 오늘 할 일 정리하기</button>'
+    +'<span style="font-size:12px;color:var(--muted)">인터넷이 필요합니다 · 처음 한 번 Gemini API 키를 넣어야 합니다'
+    +(aiKey()? ' · 키 저장됨('+esc(aiKeyMask(aiKey()))+')':'')+'</span>'
+    +'<div class="sp"></div>'
+    +'<button class="btn" data-act="ai-key-form">AI 설정</button></div>';
   h+='<div class="sec-h"><h2>한눈에 보기</h2></div>';
   h+='<div class="grid gauto">'
     +'<div class="kpi"><div class="lab">재직 인원</div><div class="num">'+working+'<small> 명</small></div>'
@@ -1688,6 +1865,21 @@ document.addEventListener("click", function(ev){
   }
   if(a==="abs-day"){ absDayView(id); return; }
   /* 직원 */
+  /* AI */
+  if(a==="ai-brief"){ aiBrief(); return; }
+  if(a==="ai-key-form"){ aiKeyForm(); return; }
+  if(a==="ai-key-save"){
+    var v=(document.getElementById("f-aikey")||{}).value||"";
+    v=v.trim();
+    if(!v){ alert("키를 입력하세요."); return; }
+    aiKeySet(v); closeModal(); render();
+    alert("저장했습니다. 이 브라우저에만 보관되며 앱 파일에는 들어가지 않습니다.");
+    return;
+  }
+  if(a==="ai-key-clear"){
+    if(!confirm("저장된 키를 지울까요?")) return;
+    aiKeySet(""); closeModal(); render(); return;
+  }
   if(a==="emp-new"){ empForm(null); return; }
   if(a==="emp-edit"){ empForm(empById(id)); return; }
   if(a==="emp-view"){ empView(id); return; }
