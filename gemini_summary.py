@@ -42,7 +42,7 @@ OUT_DIR = HERE / "요약결과"
 TODAY = date(2026, 9, 14)          # 앱의 기준일과 맞춘다
 
 DEFAULT_MODEL = "gemini-3.6-flash"
-FALLBACK_MODELS = ["gemini-flash-latest", "gemini-2.5-pro"]
+FALLBACK_MODELS = ["gemini-flash-latest", "gemini-3.5-flash"]
 RETRY_COUNT = 2
 RETRY_WAIT = 2
 

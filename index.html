@@ -764,7 +764,7 @@ function renderTabs(){
 var AI_KEY_STORE = STORE_KEY + "_aikey";
 /* 순서대로 시도한다. gemini-flash-latest 는 무료 한도가 하루 20회로 적어서
    한도가 넉넉한 gemini-3.6-flash 를 먼저 쓴다. (2026-09-14 확인) */
-var AI_MODELS = ["gemini-3.6-flash", "gemini-flash-latest", "gemini-2.5-pro"];
+var AI_MODELS = ["gemini-3.6-flash", "gemini-flash-latest", "gemini-3.5-flash"];
 
 function aiKey(){ try{ return localStorage.getItem(AI_KEY_STORE) || ""; }catch(e){ return ""; } }
 function aiKeySet(v){

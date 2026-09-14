@@ -10,7 +10,7 @@ Gemini API 호출 예제 (간단 버전)
 
 붐빌 때
     기본 모델이 503(붐빔)을 내면 2초 간격으로 두 번 더 시도하고,
-    그래도 안 되면 대체 모델(gemini-3.6-flash -> gemini-2.5-pro)로 자동으로 바꿔 시도합니다.
+    그래도 안 되면 대체 모델(gemini-3.6-flash -> gemini-3.5-flash)로 자동으로 바꿔 시도합니다.
 
 준비물
     1) .env 파일에 키 한 줄:  gemini_api_key=발급받은키
@@ -41,7 +41,7 @@ DEFAULT_MODEL = "gemini-3.6-flash"
 DEFAULT_PROMPT = "안녕하세요. 한 문장으로 자기소개를 해주세요."
 
 # 기본 모델이 붐벼서 503 이 나오면 순서대로 대신 써볼 모델 (2026-09-14 동작 확인)
-FALLBACK_MODELS = ["gemini-flash-latest", "gemini-2.5-pro"]
+FALLBACK_MODELS = ["gemini-flash-latest", "gemini-3.5-flash"]
 RETRY_COUNT = 2      # 같은 모델로 다시 시도할 횟수
 RETRY_WAIT = 2       # 다시 시도하기 전 기다리는 초
 
