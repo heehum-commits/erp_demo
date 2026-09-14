@@ -1,0 +1,13 @@
+{
+  "name": "erp-demo-hr",
+  "version": "2.0.0",
+  "private": true,
+  "description": "인사·총무 교육용 가상 데모 (단일 HTML 앱) — 검증 도구",
+  "scripts": {
+    "verify": "node verify.js",
+    "serve": "python -m http.server 8765 --bind 127.0.0.1"
+  },
+  "devDependencies": {
+    "jsdom": "^25.0.1"
+  }
+}

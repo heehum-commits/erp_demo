@@ -1,0 +1,1566 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>인사·총무 업무 앱 (교육용 가상 데모)</title>
+<style>
+:root{
+  --canvas:#ffffff; --soft:#fafafa; --card:#ffffff; --strong:#f0f0f3;
+  --ink:#171717; --body:#60646c; --muted:#999999;
+  --line:#ececf0; --line-strong:#dcdee0;
+  --ok:#16a34a; --warn:#ab6400; --err:#c4342f; --info:#0d74ce; --purple:#8145b5;
+  --edu-bg:#fff4d6; --edu-fg:#7a4b00; --edu-line:#e8cf94;
+  --r-sm:6px; --r:8px; --r-lg:12px;
+  --shadow:0 4px 12px rgba(0,0,0,.06);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --canvas:#121214; --soft:#17171a; --card:#1a1a1d; --strong:#26262c;
+    --ink:#f2f2f3; --body:#b0b4ba; --muted:#83868d;
+    --line:#2a2a30; --line-strong:#3a3a42;
+    --ok:#4ade80; --warn:#e0a33a; --err:#f08c88; --info:#6cb6ff; --purple:#c49bea;
+    --edu-bg:#3a2e10; --edu-fg:#f0d191; --edu-line:#5a4820;
+    --shadow:0 4px 12px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"]{
+  --canvas:#121214; --soft:#17171a; --card:#1a1a1d; --strong:#26262c;
+  --ink:#f2f2f3; --body:#b0b4ba; --muted:#83868d;
+  --line:#2a2a30; --line-strong:#3a3a42;
+  --ok:#4ade80; --warn:#e0a33a; --err:#f08c88; --info:#6cb6ff; --purple:#c49bea;
+  --edu-bg:#3a2e10; --edu-fg:#f0d191; --edu-line:#5a4820;
+  --shadow:0 4px 12px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--canvas); color:var(--body);
+  font-family:Inter,Pretendard,"Malgun Gothic",-apple-system,"Segoe UI",system-ui,sans-serif;
+  font-size:14px; line-height:1.5; -webkit-text-size-adjust:100%;
+}
+h1,h2,h3,h4{color:var(--ink); font-weight:600; letter-spacing:-.02em; margin:0}
+a{color:var(--info)}
+button{font:inherit; cursor:pointer}
+.wrap{max-width:1200px; margin:0 auto; padding:0 20px}
+
+.edu{background:var(--edu-bg); color:var(--edu-fg); border-bottom:1px solid var(--edu-line);
+  font-size:13px; font-weight:600; text-align:center; padding:8px 16px}
+
+header{background:var(--canvas); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:40}
+.hdr{display:flex; align-items:center; gap:10px; height:60px}
+.brand{display:flex; flex-direction:column; line-height:1.15}
+.brand b{color:var(--ink); font-size:16px; font-weight:600}
+.brand span{font-size:11px; color:var(--muted); letter-spacing:.04em}
+.hdr .sp{flex:1}
+.tabs{display:flex; gap:2px; overflow-x:auto}
+.tabs button{background:none; border:0; border-bottom:2px solid transparent; color:var(--body);
+  padding:11px 14px; font-size:14px; font-weight:500; white-space:nowrap}
+.tabs button:hover{color:var(--ink)}
+.tabs button[aria-selected="true"]{color:var(--ink); font-weight:600; border-bottom-color:var(--ink)}
+.tabs .cnt{display:inline-block; margin-left:5px; background:var(--strong); color:var(--body);
+  border-radius:999px; padding:1px 7px; font-size:11px; font-weight:600}
+
+.btn{background:var(--card); color:var(--ink); border:1px solid var(--line-strong);
+  border-radius:var(--r); padding:7px 12px; font-size:13px; font-weight:500}
+.btn:hover{background:var(--strong)}
+.btn.pri{background:var(--ink); color:var(--canvas); border-color:var(--ink)}
+.btn.pri:hover{opacity:.85}
+.btn.sm{padding:4px 9px; font-size:12px; border-radius:var(--r-sm)}
+.btn.danger{color:var(--err)}
+.btn.ok{color:var(--ok)}
+.icon{background:none; border:1px solid var(--line-strong); border-radius:var(--r);
+  width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center;
+  color:var(--body); font-size:15px}
+.icon:hover{background:var(--strong)}
+
+section.tabpane{display:none; padding:22px 0 64px}
+section.tabpane.on{display:block}
+.sec-h{margin:30px 0 12px}
+.sec-h:first-child{margin-top:6px}
+.sec-h h2{font-size:19px}
+.sec-h p{margin:4px 0 0; font-size:12.5px; color:var(--muted)}
+.card{background:var(--card); border:1px solid var(--line); border-radius:var(--r-lg); padding:18px}
+.grid{display:grid; gap:14px}
+.g4{grid-template-columns:repeat(4,1fr)}
+.gauto{grid-template-columns:repeat(auto-fit,minmax(188px,1fr))}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g2{grid-template-columns:repeat(2,1fr)}
+@media(max-width:900px){.g4,.g3{grid-template-columns:repeat(2,1fr)} .g2{grid-template-columns:1fr}}
+@media(max-width:560px){.g4,.g3,.g2{grid-template-columns:1fr}}
+
+.todo{text-align:left; background:var(--card); border:1px solid var(--line-strong);
+  border-radius:var(--r-lg); padding:16px; display:block; width:100%; transition:.12s}
+.todo:hover{box-shadow:var(--shadow); transform:translateY(-1px)}
+.todo .lab{font-size:12px; font-weight:600; color:var(--body)}
+.todo .num{font-size:30px; font-weight:600; color:var(--ink); letter-spacing:-.03em; margin:6px 0 2px}
+.todo .num small{font-size:14px; font-weight:500; color:var(--muted); margin-left:2px}
+.todo .sub{font-size:12px; color:var(--muted)}
+.todo.hot{border-color:var(--err)}
+.todo.hot .num{color:var(--err)}
+.kpi{background:var(--soft); border:1px solid var(--line); border-radius:var(--r-lg); padding:14px 16px}
+.kpi .lab{font-size:12px; color:var(--muted); font-weight:500}
+.kpi .num{font-size:23px; font-weight:600; color:var(--ink); margin-top:4px; letter-spacing:-.02em}
+.kpi .num small{font-size:13px; color:var(--muted); font-weight:500}
+.kpi .sub{font-size:11px; color:var(--muted); margin-top:2px}
+
+.bar{display:flex; flex-wrap:wrap; gap:8px; align-items:flex-end; margin:12px 0}
+.bar .sp{flex:1}
+select,input[type=text],input[type=date],input[type=number],textarea{
+  background:var(--card); color:var(--ink); border:1px solid var(--line-strong);
+  border-radius:var(--r); padding:7px 10px; font:inherit; font-size:13px; min-height:34px; max-width:100%}
+select:focus,input:focus,textarea:focus{outline:2px solid var(--ink); outline-offset:-1px}
+label.fl{display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--body); font-weight:500}
+
+.tw{overflow-x:auto; border:1px solid var(--line); border-radius:var(--r-lg); background:var(--card)}
+table{border-collapse:collapse; width:100%; min-width:680px; font-size:13px}
+th,td{padding:9px 12px; text-align:left; border-bottom:1px solid var(--line); white-space:nowrap}
+th{background:var(--soft); color:var(--body); font-weight:600; font-size:12px}
+tbody tr:hover{background:var(--soft)}
+tbody tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right; font-variant-numeric:tabular-nums}
+.empty{padding:36px 16px; text-align:center; color:var(--muted); font-size:13px}
+
+.bg{display:inline-block; border-radius:999px; padding:2px 9px; font-size:11px; font-weight:600;
+  background:var(--strong); color:var(--body)}
+.bg.ok{background:rgba(22,163,74,.14); color:var(--ok)}
+.bg.warn{background:rgba(171,100,0,.14); color:var(--warn)}
+.bg.err{background:rgba(196,52,47,.14); color:var(--err)}
+.bg.info{background:rgba(13,116,206,.14); color:var(--info)}
+.bg.pp{background:rgba(129,69,181,.14); color:var(--purple)}
+.av{display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--strong);
+  color:var(--ink); align-items:center; justify-content:center; font-size:12px; font-weight:600; margin-right:7px}
+.nm{display:inline-flex; align-items:center}
+.lnk{background:none; border:0; color:var(--info); text-decoration:underline; padding:0; font-size:13px}
+
+.bars{display:flex; flex-direction:column; gap:9px}
+.brow{display:grid; grid-template-columns:92px 1fr 96px; gap:10px; align-items:center; font-size:12px}
+.btrack{background:var(--strong); border-radius:999px; height:16px; overflow:hidden}
+.bfill{background:var(--ink); height:100%; border-radius:999px; min-width:2px}
+.bfill.o{background:var(--warn)} .bfill.r{background:var(--err)} .bfill.g{background:var(--ok)}
+.brow .v{text-align:right; color:var(--body); font-variant-numeric:tabular-nums}
+.note{font-size:12px; color:var(--muted); margin-top:10px; line-height:1.6}
+.callout{border:1px solid var(--line-strong); border-left:3px solid var(--warn); background:var(--soft);
+  border-radius:var(--r); padding:10px 14px; font-size:12.5px; color:var(--body); margin:10px 0}
+
+.mask{position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; z-index:80;
+  align-items:flex-start; justify-content:center; padding:40px 16px; overflow:auto}
+.mask.on{display:flex}
+.modal{background:var(--card); border:1px solid var(--line-strong); border-radius:var(--r-lg);
+  width:100%; max-width:600px; box-shadow:0 20px 50px rgba(0,0,0,.25)}
+.modal h3{font-size:17px; padding:18px 20px 0}
+.modal .bd{padding:16px 20px}
+.modal .ft{padding:14px 20px; border-top:1px solid var(--line); display:flex; gap:8px; justify-content:flex-end}
+.fgrid{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+.fgrid .full{grid-column:1/-1}
+@media(max-width:560px){.fgrid{grid-template-columns:1fr}}
+.dl{display:grid; grid-template-columns:92px 1fr; gap:7px 12px; font-size:13px}
+.dl dt{color:var(--muted); font-size:12px}
+.dl dd{margin:0; color:var(--ink)}
+
+/* 날짜별 부재 인원 막대 */
+.absw{overflow-x:auto}
+.absbody{min-width:620px}
+.abs{display:flex; gap:3px; align-items:flex-end; height:118px}
+.abscol{flex:1; height:100%; display:flex; flex-direction:column; justify-content:flex-end;
+  align-items:center; gap:2px; background:none; border:0; padding:0; min-width:14px}
+.abscol .cap{font-size:10px; font-weight:600; color:var(--ink); height:13px; line-height:13px}
+.abscol .stk{width:100%; display:flex; flex-direction:column; justify-content:flex-end; flex:1}
+.abscol .sok{background:var(--ink); border-radius:3px 3px 0 0}
+.abscol .sok.w{background:var(--warn)} .abscol .sok.r{background:var(--err)}
+.abscol .spd{background:var(--line-strong); border-radius:3px 3px 0 0}
+.abscol:hover .stk{opacity:.7}
+.absx{display:flex; gap:3px; margin-top:5px}
+.absx div{flex:1; text-align:center; font-size:10px; color:var(--muted); min-width:14px}
+.absx div.we{color:var(--err)}
+.absx div.td{color:var(--ink); font-weight:700; text-decoration:underline}
+.lgd{display:flex; gap:14px; flex-wrap:wrap; font-size:12px; color:var(--body); margin-top:12px; align-items:center}
+.lgd i{display:inline-block; width:11px; height:11px; border-radius:3px; margin-right:5px; vertical-align:-1px}
+
+@media print{
+  header,.tabs,.bar,.no-print,.icon,.btn{display:none !important}
+  body{background:#fff; color:#000; font-size:11px}
+  .edu{background:#fff; color:#000; border-bottom:2px solid #000; font-size:12px}
+  section.tabpane{display:block !important; page-break-before:always; padding:8px 0}
+  section.tabpane:first-of-type{page-break-before:auto}
+  .card,.tw,.kpi,.todo{border-color:#bbb !important; box-shadow:none !important}
+  table{min-width:0}
+  th{background:#f2f2f2 !important}
+}
+</style>
+</head>
+<body>
+<div class="edu">⚠️ 교육용 가상 자료 — 실제 인사기록·카드내역이 아닙니다. 인물·거래처·금액은 모두 지어낸 사례입니다.</div>
+
+<header>
+  <div class="wrap hdr">
+    <div class="brand"><b>㈜한빛로지스 인사·총무</b><span>EDUCATIONAL DEMO · 가상 데이터</span></div>
+    <div class="sp"></div>
+    <button class="icon no-print" id="btnTheme" title="밝게/어둡게">◐</button>
+    <button class="icon no-print" id="btnPrint" title="인쇄">🖨</button>
+    <button class="btn no-print" id="btnReset">가상 데이터로 초기화</button>
+  </div>
+  <div class="wrap"><div class="tabs" id="tabs" role="tablist"></div></div>
+</header>
+
+<main class="wrap">
+  <section class="tabpane" id="pane-home"></section>
+  <section class="tabpane" id="pane-emp"></section>
+  <section class="tabpane" id="pane-leave"></section>
+  <section class="tabpane" id="pane-asset"></section>
+  <section class="tabpane" id="pane-card"></section>
+</main>
+
+<div class="mask" id="mask"><div class="modal" id="modal"></div></div>
+
+<script>
+"use strict";
+/* =========================================================================
+   ㈜한빛로지스 인사·총무 업무 앱 — 교육용 가상 데모
+   이 파일의 모든 데이터는 교육 목적으로 지어낸 가상 사례입니다.
+   ========================================================================= */
+var TODAY = new Date(2026, 8, 14);          // 기준일 2026-09-14
+var STORE_KEY = "hanbit_hr_demo_v1";
+
+/* ------------------------------------------------------------------
+   가상 데이터 (교육용) — 실재 인물·기업·거래와 무관합니다.
+   연락처는 010-0000-00NN, 메일은 @hanbit-demo.example 로 만들어
+   한눈에 가짜임을 알 수 있게 했습니다.
+   ------------------------------------------------------------------ */
+
+/* 직원 28명 : [사번,이름,부서,직급,고용형태,입사일,상태,퇴사일,비고] */
+var RAW_EMP = [
+["HB0101","강도현","경영지원팀","부장","정규직","2014-03-02","재직","",""],
+["HB0102","문세라","경영지원팀","과장","정규직","2018-07-01","재직","",""],
+["HB0103","백지훈","경영지원팀","대리","정규직","2021-04-12","퇴사","2026-05-15","개인사정 사직"],
+["HB0104","오하늘","경영지원팀","주임","정규직","2023-09-01","재직","",""],
+["HB0105","진유나","경영지원팀","사원","계약직","2026-03-02","퇴사","2026-09-30","계약기간 만료"],
+["HB0201","남기현","영업팀","이사","정규직","2011-01-03","재직","",""],
+["HB0202","서동우","영업팀","차장","정규직","2016-05-16","재직","",""],
+["HB0203","윤가람","영업팀","과장","정규직","2019-02-11","재직","",""],
+["HB0204","최민석","영업팀","대리","정규직","2022-01-03","재직","",""],
+["HB0205","한소영","영업팀","주임","정규직","2024-03-04","재직","",""],
+["HB0206","고은비","영업팀","사원","정규직","2026-01-02","재직","",""],
+["HB0301","임재훈","운영팀","부장","정규직","2013-06-03","재직","",""],
+["HB0302","정해린","운영팀","차장","정규직","2017-03-13","재직","",""],
+["HB0303","배수찬","운영팀","과장","정규직","2019-08-19","재직","",""],
+["HB0304","노아름","운영팀","대리","정규직","2021-11-01","휴직","","육아휴직 (2026-03-09 ~ 2027-03-08)"],
+["HB0305","신동혁","운영팀","대리","정규직","2022-05-02","재직","",""],
+["HB0306","류지완","운영팀","주임","정규직","2023-02-06","재직","",""],
+["HB0307","황보라","운영팀","사원","정규직","2025-04-01","재직","",""],
+["HB0308","차민규","운영팀","사원","계약직","2026-06-10","재직","","수습 평가 예정"],
+["HB0401","소재영","통관팀","차장","정규직","2015-09-01","재직","",""],
+["HB0402","하예진","통관팀","과장","정규직","2020-03-02","재직","",""],
+["HB0403","구본석","통관팀","대리","정규직","2023-06-01","재직","",""],
+["HB0404","양수빈","통관팀","사원","인턴","2026-09-01","재직","","신규 입사"],
+["HB0501","마준호","부산지점","부장","정규직","2012-11-05","재직","",""],
+["HB0502","표은서","부산지점","과장","정규직","2018-09-03","재직","",""],
+["HB0503","지상현","부산지점","대리","정규직","2021-07-05","퇴사","2026-06-30","이직"],
+["HB0504","엄지원","부산지점","주임","정규직","2024-08-01","재직","",""],
+["HB0505","추연우","부산지점","사원","정규직","2025-06-02","재직","",""]
+];
+
+/* 휴가 신청 40건 : [번호,사번,유형,시작일,종료일,일수,사유,상태,신청일] */
+var RAW_LEAVE = [
+["L01","HB0101","연차","2026-02-16","2026-02-18",3,"개인 사유","승인","2026-02-09"],
+["L02","HB0201","연차","2026-03-09","2026-03-13",5,"가족 여행","승인","2026-02-27"],
+["L03","HB0301","연차","2026-01-27","2026-01-28",2,"개인 사유","승인","2026-01-20"],
+["L04","HB0302","반차","2026-04-03","2026-04-03",0.5,"병원 진료","승인","2026-04-01"],
+["L05","HB0102","연차","2026-05-04","2026-05-06",3,"개인 사유","승인","2026-04-24"],
+["L06","HB0202","연차","2026-06-15","2026-06-19",5,"여름 휴가","승인","2026-06-01"],
+["L07","HB0303","연차","2026-07-06","2026-07-10",5,"여름 휴가","승인","2026-06-22"],
+["L08","HB0401","연차","2026-07-20","2026-07-24",5,"여름 휴가","승인","2026-07-06"],
+["L09","HB0501","연차","2026-08-03","2026-08-07",5,"여름 휴가","승인","2026-07-20"],
+["L10","HB0203","반차","2026-03-20","2026-03-20",0.5,"개인 사유","승인","2026-03-18"],
+["L11","HB0204","연차","2026-04-27","2026-04-29",3,"개인 사유","승인","2026-04-17"],
+["L12","HB0305","연차","2026-05-18","2026-05-20",3,"개인 사유","승인","2026-05-08"],
+["L13","HB0402","연차","2026-06-01","2026-06-03",3,"개인 사유","승인","2026-05-22"],
+["L14","HB0502","연차","2026-08-17","2026-08-19",3,"개인 사유","승인","2026-08-05"],
+["L15","HB0104","연차","2026-02-09","2026-02-10",2,"개인 사유","승인","2026-02-02"],
+["L16","HB0205","반차","2026-05-15","2026-05-15",0.5,"은행 업무","승인","2026-05-13"],
+["L17","HB0306","연차","2026-08-24","2026-08-26",3,"개인 사유","승인","2026-08-12"],
+["L18","HB0403","반차","2026-07-02","2026-07-02",0.5,"병원 진료","승인","2026-06-30"],
+["L19","HB0504","연차","2026-09-01","2026-09-02",2,"개인 사유","승인","2026-08-21"],
+["L20","HB0307","연차","2026-06-24","2026-06-25",2,"개인 사유","승인","2026-06-15"],
+["L21","HB0101","병가","2026-04-13","2026-04-14",2,"몸살 치료","승인","2026-04-13"],
+["L22","HB0302","경조사","2026-05-25","2026-05-27",3,"조부상","승인","2026-05-25"],
+["L23","HB0206","연차","2026-08-10","2026-08-11",2,"개인 사유","승인","2026-07-30"],
+["L24","HB0505","연차","2026-07-13","2026-07-15",3,"개인 사유","승인","2026-07-01"],
+["L25","HB0201","반차","2026-09-04","2026-09-04",0.5,"개인 사유","승인","2026-09-02"],
+["L26","HB0304","경조사","2026-03-02","2026-03-06",5,"배우자 출산","승인","2026-02-25"],
+["L27","HB0402","공가","2026-06-09","2026-06-09",1,"예비군 훈련","승인","2026-06-02"],
+["L28","HB0301","연차","2026-09-07","2026-09-08",2,"개인 사유","승인","2026-08-27"],
+["L29","HB0103","연차","2026-04-06","2026-04-08",3,"개인 사유","승인","2026-03-27"],
+["L30","HB0202","연차","2026-09-21","2026-09-25",5,"가을 휴가","대기","2026-09-08"],
+["L31","HB0303","반차","2026-09-17","2026-09-17",0.5,"병원 진료","대기","2026-09-11"],
+["L32","HB0104","연차","2026-09-28","2026-09-30",3,"개인 사유","대기","2026-09-10"],
+["L33","HB0501","연차","2026-10-05","2026-10-07",3,"개인 사유","대기","2026-09-12"],
+["L34","HB0308","연차","2026-09-18","2026-09-18",1,"개인 사유","대기","2026-09-13"],
+["L35","HB0307","병가","2026-09-16","2026-09-17",2,"입원 치료","대기","2026-09-14"],
+["L36","HB0204","연차","2026-06-29","2026-07-03",5,"개인 사유","반려","2026-06-26"],
+["L37","HB0306","연차","2026-08-31","2026-09-04",5,"개인 사유","반려","2026-08-25"],
+["L38","HB0403","연차","2026-05-11","2026-05-15",5,"개인 사유","반려","2026-05-08"],
+["L39","HB0205","반차","2026-07-31","2026-07-31",0.5,"개인 사유","반려","2026-07-30"],
+["L40","HB0503","연차","2026-06-22","2026-06-26",5,"개인 사유","반려","2026-06-18"],
+/* 9월 휴가 몰림 상황 (교육용) — 같은 날 여러 명이 겹치도록 만든 가상 신청 */
+["L41","HB0203","연차","2026-09-21","2026-09-23",3,"가을 휴가","대기","2026-09-07"],
+["L42","HB0302","연차","2026-09-22","2026-09-24",3,"가을 휴가","승인","2026-09-03"],
+["L43","HB0402","연차","2026-09-21","2026-09-22",2,"개인 사유","승인","2026-09-02"],
+["L44","HB0502","연차","2026-09-23","2026-09-25",3,"가을 휴가","대기","2026-09-09"],
+["L45","HB0102","반차","2026-09-22","2026-09-22",0.5,"병원 진료","승인","2026-09-10"],
+["L46","HB0305","연차","2026-09-24","2026-09-25",2,"개인 사유","승인","2026-09-04"],
+["L47","HB0205","연차","2026-09-25","2026-09-25",1,"개인 사유","대기","2026-09-11"],
+["L48","HB0403","연차","2026-09-16","2026-09-18",3,"가족 행사","승인","2026-09-02"],
+["L49","HB0101","연차","2026-09-17","2026-09-18",2,"개인 사유","승인","2026-09-03"],
+["L50","HB0505","반차","2026-09-17","2026-09-17",0.5,"은행 업무","대기","2026-09-11"]
+];
+
+/* 자산 35점 : [자산번호,구분,품목,모델,취득일,취득가,상태,사용자사번,불출일,반납예정일] */
+var RAW_ASSET = [
+["A-2101","IT기기","노트북","루미노트14","2021-03-15",1480000,"불출중","HB0101","2021-03-22",""],
+["A-2102","IT기기","노트북","루미노트14","2021-03-15",1480000,"불출중","HB0201","2021-03-22",""],
+["A-2201","IT기기","노트북","루미노트15","2022-04-11",1620000,"불출중","HB0301","2022-04-18",""],
+["A-2202","IT기기","노트북","루미노트15","2022-04-11",1620000,"불출중","HB0401","2022-04-18",""],
+["A-2301","IT기기","노트북","한빛NB-13","2023-05-08",1250000,"불출중","HB0102","2023-05-15",""],
+["A-2302","IT기기","노트북","한빛NB-13","2023-05-08",1250000,"보관중","","",""],
+["A-2401","IT기기","노트북","루미노트15","2024-06-03",1580000,"불출중","HB0501","2024-06-10",""],
+["A-2402","IT기기","노트북","루미노트15","2024-06-03",1580000,"불출중","HB0202","2024-06-10",""],
+["A-2501","IT기기","모니터","시그마24","2025-02-17",245000,"불출중","HB0104","2025-02-20",""],
+["A-2502","IT기기","모니터","시그마24","2025-02-17",245000,"불출중","HB0203","2025-02-20",""],
+["A-2503","IT기기","모니터","시그마27","2025-02-17",389000,"불출중","HB0302","2025-02-20",""],
+["A-2504","IT기기","모니터","시그마27","2025-02-17",389000,"보관중","","",""],
+["A-2505","IT기기","모니터","시그마24","2025-02-17",245000,"수리중","","",""],
+["A-2601","IT기기","바코드스캐너","스캔프로 S2","2022-09-05",420000,"불출중","HB0303","2022-09-12",""],
+["A-2602","IT기기","바코드스캐너","스캔프로 S2","2022-09-05",420000,"불출중","HB0306","2022-09-12",""],
+["A-2603","IT기기","바코드스캐너","스캔프로 S3","2024-10-14",510000,"불출중","HB0402","2024-10-21",""],
+["A-2604","IT기기","바코드스캐너","스캔프로 S3","2024-10-14",510000,"보관중","","",""],
+["A-2701","IT기기","프린터","프린테크 L300","2020-11-02",680000,"불출중","HB0102","2020-11-09",""],
+["A-2702","IT기기","복합기","프린테크 C500","2023-08-21",1340000,"불출중","HB0501","2023-08-28",""],
+["A-2801","IT기기","태블릿","패드원 11","2025-07-09",890000,"불출중","HB0403","2026-08-24","2026-09-07"],
+["A-2802","IT기기","태블릿","패드원 11","2025-07-09",890000,"불출중","HB0205","2026-09-07","2026-09-21"],
+["A-2901","IT기기","업무용휴대폰","톡폰 A5","2024-03-12",540000,"불출중","HB0204","2024-03-19",""],
+["A-2902","IT기기","업무용휴대폰","톡폰 A5","2024-03-12",540000,"불출중","HB0505","2024-03-19",""],
+["A-2903","IT기기","업무용휴대폰","톡폰 A5","2024-03-12",540000,"폐기","","",""],
+["A-3001","IT기기","NAS","세이프스토어 N4","2023-01-19",1750000,"보관중","","",""],
+["A-3002","IT기기","공유기","넷링크 AX3","2024-02-06",168000,"보관중","","",""],
+["A-4101","사무가구","사무의자","컴포트체어 C1","2021-06-14",210000,"불출중","HB0104","2021-06-20",""],
+["A-4102","사무가구","사무의자","컴포트체어 C1","2021-06-14",210000,"불출중","HB0307","2025-04-05",""],
+["A-4103","사무가구","사무의자","컴포트체어 C1","2021-06-14",210000,"폐기","","",""],
+["A-4201","사무가구","책상","워크데스크1400","2021-06-14",320000,"불출중","HB0305","2022-05-09",""],
+["A-4202","사무가구","책상","워크데스크1400","2021-06-14",320000,"보관중","","",""],
+["A-4301","사무가구","캐비닛","스틸락3단","2019-09-03",180000,"불출중","HB0101","2019-09-10",""],
+["A-4302","사무가구","캐비닛","스틸락3단","2019-09-03",180000,"수리중","","",""],
+["A-5101","기타","지게차","리프트킹 2.5T","2018-05-21",24500000,"불출중","HB0501","2026-07-01","2026-08-31"],
+["A-5102","기타","핸드파레트","핸드팔레트 HP-25","2022-02-08",780000,"불출중","HB0308","2026-09-01","2026-09-10"]
+];
+
+/* 불출·반납 이력 20건 : [번호,자산번호,동작,사번,일자,비고] */
+var RAW_LOG = [
+["G01","A-2802","불출","HB0205","2026-09-07","출장용 대여"],
+["G02","A-5102","불출","HB0308","2026-09-01","창고 작업 배치"],
+["G03","A-2802","반납","HB0504","2026-08-28","사용 종료"],
+["G04","A-2801","불출","HB0403","2026-08-24","통관 현장 대여"],
+["G05","A-2505","수리입고","","2026-08-18","화면 깜빡임"],
+["G06","A-2801","반납","HB0205","2026-08-20","이전 사용자 반납"],
+["G07","A-2604","반납","HB0105","2026-09-30","계약 종료 반납"],
+["G08","A-5101","불출","HB0501","2026-07-01","부산지점 임시 배치"],
+["G09","A-4302","수리입고","","2026-07-14","도어 잠금 불량"],
+["G10","A-2903","폐기","","2026-06-30","배터리 팽창"],
+["G11","A-2504","반납","HB0503","2026-06-30","퇴사 반납"],
+["G12","A-4103","폐기","","2026-05-12","등받이 파손"],
+["G13","A-2302","반납","HB0103","2026-05-15","퇴사 반납"],
+["G14","A-4202","반납","HB0103","2026-05-15","퇴사 반납"],
+["G15","A-3002","반납","HB0301","2026-04-02","사무실 이전"],
+["G16","A-4102","불출","HB0307","2025-04-05","신규 입사 지급"],
+["G17","A-2501","불출","HB0104","2025-02-20","신규 지급"],
+["G18","A-2603","불출","HB0402","2024-10-21","통관팀 배치"],
+["G19","A-2402","불출","HB0202","2024-06-10","노후 장비 교체"],
+["G20","A-2701","불출","HB0102","2020-11-09","총무 비치"]
+];
+
+/* 소모품 12품목 : [품목,단위,현재고,안전재고] */
+var RAW_SUPPLY = [
+["A4용지","박스",12,10],
+["토너(흑백)","개",2,3],
+["볼펜","자루",48,30],
+["포스트잇","팩",9,10],
+["파일홀더","개",25,20],
+["서류봉투(대)","장",60,100],
+["박스테이프","개",14,10],
+["물티슈","통",6,8],
+["커피믹스","박스",4,3],
+["종이컵","팩",7,5],
+["건전지(AA)","팩",3,6],
+["라벨지","팩",11,8]
+];
+
+/* 법인카드 4장 : [카드ID,뒤4자리,관리부서,소지자사번] */
+var RAW_CARD = [
+["C1","0001","경영지원팀","HB0101"],
+["C2","0002","영업팀","HB0201"],
+["C3","0003","운영팀","HB0301"],
+["C4","0004","부산지점","HB0501"]
+];
+
+/* 카드 사용내역 60건 : [번호,사용일,카드ID,사번,가맹점,계정과목,금액,증빙] */
+var RAW_SPEND = [
+["S01","2026-07-02","C3","HB0301","새벽주유소","차량유지비",88000,"제출"],
+["S02","2026-07-03","C2","HB0202","가온식당","접대비",142000,"제출"],
+["S03","2026-07-06","C1","HB0102","한빛문구","소모품비",36500,"제출"],
+["S04","2026-07-07","C4","HB0501","부산항로휴게소","여비교통비",18400,"제출"],
+["S05","2026-07-08","C3","HB0303","고속도로 통행료","여비교통비",24600,"제출"],
+["S06","2026-07-09","C1","HB0101","미르카페","복리후생비",54000,"제출"],
+["S07","2026-07-10","C2","HB0201","남포해장국","접대비",96000,"제출"],
+["S08","2026-07-13","C4","HB0502","하나로주유소","차량유지비",95000,"제출"],
+["S09","2026-07-14","C3","HB0302","오피스마루","소모품비",128000,"제출"],
+["S10","2026-07-15","C1","HB0104","초록마트","복리후생비",73200,"제출"],
+["S11","2026-07-16","C2","HB0203","별빛호텔","여비교통비",165000,"제출"],
+["S12","2026-07-17","C3","HB0305","큰길자동차정비","차량유지비",242000,"제출"],
+["S13","2026-07-20","C1","HB0102","누리텔레콤","통신비",318000,"제출"],
+["S14","2026-07-21","C4","HB0504","청해수산","접대비",187000,"미제출"],
+["S15","2026-07-23","C2","HB0204","가온식당","접대비",118000,"제출"],
+["S16","2026-07-24","C3","HB0306","새벽주유소","차량유지비",76000,"제출"],
+["S17","2026-07-27","C1","HB0101","한빛문구","소모품비",41800,"제출"],
+["S18","2026-07-28","C4","HB0501","온누리렌터카","여비교통비",132000,"미제출"],
+["S19","2026-07-29","C2","HB0202","미르카페","복리후생비",38500,"제출"],
+["S20","2026-07-30","C3","HB0301","대륙식자재","복리후생비",156000,"제출"],
+["S21","2026-08-03","C1","HB0102","누리텔레콤","통신비",318000,"제출"],
+["S22","2026-08-04","C3","HB0302","새벽주유소","차량유지비",91000,"제출"],
+["S23","2026-08-05","C2","HB0201","남포해장국","접대비",134000,"제출"],
+["S24","2026-08-06","C4","HB0502","부산항로휴게소","여비교통비",16900,"제출"],
+["S25","2026-08-07","C1","HB0104","초록마트","복리후생비",62400,"제출"],
+["S26","2026-08-10","C3","HB0303","고속도로 통행료","여비교통비",31200,"제출"],
+["S27","2026-08-11","C2","HB0203","가온식당","접대비",108000,"제출"],
+["S28","2026-08-12","C1","HB0101","오피스마루","소모품비",97000,"제출"],
+["S29","2026-08-13","C4","HB0505","하나로주유소","차량유지비",87500,"미제출"],
+["S30","2026-08-14","C3","HB0305","큰길자동차정비","차량유지비",168000,"제출"],
+["S31","2026-08-17","C2","HB0204","별빛호텔","여비교통비",148000,"제출"],
+["S32","2026-08-18","C1","HB0102","한빛문구","소모품비",28900,"제출"],
+["S33","2026-08-19","C3","HB0306","미르카페","복리후생비",45000,"제출"],
+["S34","2026-08-20","C4","HB0501","청해수산","접대비",215000,"제출"],
+["S35","2026-08-21","C2","HB0202","새벽주유소","차량유지비",82000,"제출"],
+["S36","2026-08-24","C1","HB0101","대륙식자재","복리후생비",174000,"제출"],
+["S37","2026-08-25","C3","HB0301","오피스마루","소모품비",66000,"미제출"],
+["S38","2026-08-26","C2","HB0205","가온식당","접대비",92000,"제출"],
+["S39","2026-08-27","C4","HB0504","온누리렌터카","여비교통비",119000,"제출"],
+["S40","2026-08-28","C3","HB0302","고속도로 통행료","여비교통비",27800,"제출"],
+["S41","2026-08-31","C1","HB0104","초록마트","복리후생비",58300,"제출"],
+["S42","2026-08-31","C2","HB0201","남포해장국","접대비",126000,"미제출"],
+["S43","2026-09-01","C1","HB0102","누리텔레콤","통신비",318000,"제출"],
+["S44","2026-09-01","C3","HB0303","새벽주유소","차량유지비",79000,"제출"],
+["S45","2026-09-02","C2","HB0202","가온식당","접대비",156000,"제출"],
+["S46","2026-09-03","C4","HB0502","부산항로휴게소","여비교통비",19700,"제출"],
+["S47","2026-09-04","C1","HB0101","오피스마루","소모품비",112000,"미제출"],
+["S48","2026-09-07","C3","HB0305","고속도로 통행료","여비교통비",29400,"제출"],
+["S49","2026-09-07","C2","HB0203","미르카페","복리후생비",41000,"제출"],
+["S50","2026-09-08","C4","HB0501","청해수산","접대비",198000,"제출"],
+["S51","2026-09-08","C1","HB0104","한빛문구","소모품비",33600,"제출"],
+["S52","2026-09-09","C3","HB0306","큰길자동차정비","차량유지비",205000,"미제출"],
+["S53","2026-09-09","C2","HB0204","남포해장국","접대비",87000,"제출"],
+["S54","2026-09-10","C4","HB0505","하나로주유소","차량유지비",93000,"제출"],
+["S55","2026-09-10","C1","HB0102","초록마트","복리후생비",67800,"제출"],
+["S56","2026-09-11","C3","HB0301","대륙식자재","복리후생비",143000,"제출"],
+["S57","2026-09-11","C2","HB0205","별빛호텔","여비교통비",137000,"미제출"],
+["S58","2026-09-12","C4","HB0504","온누리렌터카","여비교통비",124000,"제출"],
+["S59","2026-09-12","C1","HB0101","누리텔레콤","통신비",42000,"제출"],
+["S60","2026-09-12","C3","HB0302","새벽주유소","차량유지비",85000,"제출"]
+];
+
+/* =========================== 공통 도구 =========================== */
+function $(s){ return document.querySelector(s); }
+function esc(v){ return String(v==null?"":v).replace(/[&<>"']/g,function(c){
+  return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+function nf(n){ return (Number(n)||0).toLocaleString("ko-KR"); }
+function d(s){ if(!s) return null; var p=String(s).split("-"); return new Date(+p[0],+p[1]-1,+p[2]); }
+function ymd(dt){ if(!dt) return ""; var m=dt.getMonth()+1,y=dt.getDate();
+  return dt.getFullYear()+"-"+(m<10?"0":"")+m+"-"+(y<10?"0":"")+y; }
+function daysBetween(a,b){ return Math.round((b-a)/86400000); }
+function monthsBetween(a,b){
+  var m=(b.getFullYear()-a.getFullYear())*12+(b.getMonth()-a.getMonth());
+  if(b.getDate()<a.getDate()) m--;
+  return m;
+}
+function pad4(n){ n=String(n); while(n.length<4) n="0"+n; return n; }
+function pct(num,den){ return den>0 ? Math.round(num/den*1000)/10 : 0; }
+function uid(p){ return p+"-"+Math.random().toString(36).slice(2,7).toUpperCase(); }
+
+var DEPTS=["경영지원팀","영업팀","운영팀","통관팀","부산지점"];
+var RANKS=["대표이사","이사","부장","차장","과장","대리","주임","사원"];
+var ETYPES=["정규직","계약직","인턴"];
+var LTYPES=["연차","반차","병가","경조사","공가"];
+var ACATS=["IT기기","사무가구","기타"];
+var ASTATUS=["보관중","불출중","수리중","폐기"];
+var ACCTS=["접대비","복리후생비","소모품비","여비교통비","통신비","차량유지비"];
+var DEDUCT={"연차":1,"반차":1};   /* 연차에서 차감하는 유형 */
+
+/* =========================== 데이터 =========================== */
+var DB=null;
+function buildSeed(){
+  return {
+    emps: RAW_EMP.map(function(r,i){ return {
+      id:r[0],name:r[1],dept:r[2],rank:r[3],etype:r[4],hire:r[5],
+      status:r[6],out:r[7],memo:r[8],promo:"통보 전",
+      phone:"010-0000-"+pad4(i+1), email:r[0].toLowerCase()+"@hanbit-demo.example" }; }),
+    leaves: RAW_LEAVE.map(function(r){ return {
+      id:r[0],emp:r[1],type:r[2],s:r[3],e:r[4],days:r[5],reason:r[6],status:r[7],req:r[8] }; }),
+    assets: RAW_ASSET.map(function(r){ return {
+      id:r[0],cat:r[1],item:r[2],model:r[3],acq:r[4],cost:r[5],
+      status:r[6],holder:r[7],outDate:r[8],due:r[9] }; }),
+    logs: RAW_LOG.map(function(r){ return {
+      id:r[0],asset:r[1],act:r[2],emp:r[3],date:r[4],memo:r[5] }; }),
+    supplies: RAW_SUPPLY.map(function(r,i){ return {
+      id:"P"+pad4(i+1),name:r[0],unit:r[1],stock:r[2],safe:r[3] }; }),
+    cards: RAW_CARD.map(function(r){ return {
+      id:r[0],last4:r[1],dept:r[2],owner:r[3] }; }),
+    spends: RAW_SPEND.map(function(r){ return {
+      id:r[0],date:r[1],card:r[2],emp:r[3],merchant:r[4],acct:r[5],amount:r[6],proof:r[7] }; })
+  };
+}
+function save(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(DB)); }catch(e){} }
+function load(){
+  try{
+    var raw=localStorage.getItem(STORE_KEY);
+    if(raw){ var o=JSON.parse(raw); if(o && o.emps && o.emps.length){ DB=o; return; } }
+  }catch(e){}
+  DB=buildSeed();
+}
+function resetAll(){
+  if(!confirm("입력·수정한 내용을 모두 지우고 처음 가상 데이터로 되돌립니다.\n계속할까요?")) return;
+  DB=buildSeed(); save(); render();
+}
+
+/* =========================== 계산 규칙 =========================== */
+/* 연차 부여 (교육용 단순식)
+   - 입사 1년 미만 : 근무 개월수 x 1일 (최대 11일)
+   - 입사 1년 이상 : 15일 + (근속연수-1)/2 의 몫, 최대 25일 */
+function grantDays(e){
+  var base = (e.status==="퇴사" && e.out) ? d(e.out) : TODAY;
+  var m = monthsBetween(d(e.hire), base);
+  if(m<0) return 0;
+  if(m<12) return Math.min(11, m);
+  var y = Math.floor(m/12);
+  return Math.min(25, 15 + Math.floor((y-1)/2));
+}
+/* 승인된 연차·반차만 차감 (병가·경조사·공가는 별도 집계) */
+function usedDays(id){
+  return DB.leaves.reduce(function(a,l){
+    return a + ((l.emp===id && l.status==="승인" && DEDUCT[l.type]) ? Number(l.days) : 0); },0);
+}
+function otherDays(id){
+  return DB.leaves.reduce(function(a,l){
+    return a + ((l.emp===id && l.status==="승인" && !DEDUCT[l.type]) ? Number(l.days) : 0); },0);
+}
+function tenureY(e){
+  var base = (e.status==="퇴사" && e.out) ? d(e.out) : TODAY;
+  return Math.max(0, Math.round(daysBetween(d(e.hire), base)/365.25*10)/10);
+}
+function empById(id){ for(var i=0;i<DB.emps.length;i++) if(DB.emps[i].id===id) return DB.emps[i]; return null; }
+function empName(id){ var e=empById(id); return e?e.name:"(삭제된 직원)"; }
+function empDept(id){ var e=empById(id); return e?e.dept:"-"; }
+function cardById(id){ for(var i=0;i<DB.cards.length;i++) if(DB.cards[i].id===id) return DB.cards[i]; return null; }
+function cardLabel(id){ var c=cardById(id); return c? ("****-"+c.last4) : "-"; }
+
+/* 이 신청을 승인하면 잔여를 며칠 넘기는가 (넘지 않으면 0) */
+function leaveOver(l){
+  if(!DEDUCT[l.type]) return 0;          /* 병가·경조사·공가는 연차를 안 씀 */
+  if(l.status==="승인") return 0;         /* 이미 반영된 건 */
+  var e=empById(l.emp); if(!e) return 0;
+  var over=Number(l.days)-(grantDays(e)-usedDays(e.id));
+  return over>0 ? over : 0;
+}
+
+/* 연차 촉진 대상 — 잔여 15일 이상 & 소진율 25% 미만 (퇴사자 제외) */
+var PROMO_MIN_REST=15, PROMO_MAX_PCT=25;
+var PROMO_STATES=["통보 전","통보 완료","사용 계획 접수"];
+function promoOf(e){ return PROMO_STATES.indexOf(e.promo)>=0 ? e.promo : "통보 전"; }
+function promoTargets(){
+  /* 휴직자는 근로 제공 의무가 없어 촉진 대상에서 뺀다 (재직자만) */
+  return DB.emps.filter(function(e){ return e.status==="재직"; })
+    .map(function(e){ var g=grantDays(e), u=usedDays(e.id);
+      return {e:e,g:g,u:u,r:g-u,p:pct(u,g)}; })
+    .filter(function(x){ return x.r>=PROMO_MIN_REST && x.p<PROMO_MAX_PCT; })
+    .sort(function(a,b){
+      var ai=PROMO_STATES.indexOf(promoOf(a.e)), bi=PROMO_STATES.indexOf(promoOf(b.e));
+      if(ai!==bi) return ai-bi;          /* 처리 안 된 사람 먼저 */
+      return b.r-a.r;                    /* 그 다음 잔여 많은 순 */
+    });
+}
+function promoPending(){
+  return promoTargets().filter(function(x){ return promoOf(x.e)!=="사용 계획 접수"; });
+}
+function proofOverdue(s){ /* 미제출 + 사용일로부터 14일 경과 */
+  if(s.proof!=="미제출") return false;
+  var dt=d(s.date); if(!dt) return false;
+  return daysBetween(dt, TODAY) >= 14;
+}
+function assetLate(a){ /* 불출중 + 반납예정일이 오늘보다 이전 */
+  if(a.status!=="불출중" || !a.due) return false;
+  return d(a.due) < TODAY;
+}
+function hrEvents(){ /* 이번 달 입사·수습종료(입사+3개월)·퇴사 */
+  var y=TODAY.getFullYear(), m=TODAY.getMonth(), out=[];
+  DB.emps.forEach(function(e){
+    var h=d(e.hire);
+    if(h && h.getFullYear()===y && h.getMonth()===m) out.push({emp:e,kind:"입사",date:e.hire});
+    if(h){ var p=new Date(h.getFullYear(),h.getMonth()+3,h.getDate());
+      if(p.getFullYear()===y && p.getMonth()===m) out.push({emp:e,kind:"수습 종료",date:ymd(p)}); }
+    if(e.out){ var o=d(e.out);
+      if(o && o.getFullYear()===y && o.getMonth()===m) out.push({emp:e,kind:"퇴사",date:e.out}); }
+  });
+  return out.sort(function(a,b){ return a.date<b.date?-1:1; });
+}
+
+/* =========================== 화면 상태 =========================== */
+var DEF={
+  emp:{dept:"전체",status:"재직",etype:"전체",event:"전체",q:""},
+  leave:{status:"전체",dept:"전체",type:"전체",q:"",
+         month:TODAY.getFullYear()+"-"+(TODAY.getMonth()+1<10?"0":"")+(TODAY.getMonth()+1)},
+  asset:{cat:"전체",status:"전체",q:""},
+  card:{month:"전체",dept:"전체",acct:"전체",proof:"전체",q:""}
+};
+var S={tab:"home",emp:{},leave:{},asset:{},card:{}};
+function resetState(){ ["emp","leave","asset","card"].forEach(function(g){
+  S[g]={}; for(var k in DEF[g]) S[g][k]=DEF[g][k]; }); }
+resetState();
+
+function writeHash(){
+  var p=["tab="+S.tab];
+  ["emp","leave","asset","card"].forEach(function(g){
+    for(var k in DEF[g]) if(S[g][k]!==DEF[g][k]) p.push(g+"."+k+"="+encodeURIComponent(S[g][k]));
+  });
+  var h="#"+p.join("&");
+  if(location.hash===h) return;
+  try{ history.replaceState(null,"",h); }
+  catch(err){ try{ location.hash=h.slice(1); }catch(e2){} }
+}
+function readHash(){
+  var h=location.hash.replace(/^#/,""); if(!h) return;
+  resetState();
+  h.split("&").forEach(function(kv){
+    var i=kv.indexOf("="); if(i<0) return;
+    var k=kv.slice(0,i), v=decodeURIComponent(kv.slice(i+1));
+    if(k==="tab"){ S.tab=v; return; }
+    var p=k.split("."); if(p.length===2 && S[p[0]] && (p[1] in DEF[p[0]])) S[p[0]][p[1]]=v;
+  });
+}
+
+/* =========================== 처리할 것 (단일 기준) =========================== */
+var TODOS=[
+  { key:"pend", label:"승인 대기 휴가", unit:"건", tab:"leave",
+    sub:"휴가 탭에서 승인 또는 반려하세요",
+    list:function(){ return DB.leaves.filter(function(l){ return l.status==="대기"; }); },
+    apply:function(){ S.leave.status="대기"; } },
+  { key:"proof", label:"증빙 미제출 (14일 경과)", unit:"건", tab:"card",
+    sub:"사용일로부터 14일이 지난 미제출 건",
+    list:function(){ return DB.spends.filter(proofOverdue); },
+    apply:function(){ S.card.proof="14일경과"; } },
+  { key:"late", label:"반납 지연 자산", unit:"점", tab:"asset",
+    sub:"반납예정일이 지난 불출중 자산",
+    list:function(){ return DB.assets.filter(assetLate); },
+    apply:function(){ S.asset.status="반납지연"; } },
+  { key:"promo", label:"연차 촉진 처리", unit:"명", tab:"leave",
+    sub:"잔여 15일 이상 · 소진율 25% 미만",
+    list:function(){ return promoPending(); },
+    apply:function(){} },
+  { key:"hr", label:"이번 달 인사 이벤트", unit:"건", tab:"emp",
+    sub:"입사 · 수습 종료 · 퇴사",
+    list:function(){ return hrEvents(); },
+    apply:function(){ S.emp.status="전체"; S.emp.event="이번달"; } }
+];
+
+/* =========================== 탭 =========================== */
+var TABS=[
+  {k:"home", n:"홈"},
+  {k:"emp",  n:"인사기록", cnt:function(){ return hrEvents().length; }},
+  {k:"leave",n:"근태·휴가", cnt:function(){ return DB.leaves.filter(function(l){return l.status==="대기";}).length; }},
+  {k:"asset",n:"비품·자산", cnt:function(){ return DB.assets.filter(assetLate).length; }},
+  {k:"card", n:"법인카드", cnt:function(){ return DB.spends.filter(proofOverdue).length; }}
+];
+function renderTabs(){
+  $("#tabs").innerHTML = TABS.map(function(t){
+    var c = t.cnt ? t.cnt() : 0;
+    return '<button role="tab" data-act="tab" data-id="'+t.k+'" aria-selected="'+(S.tab===t.k)+'">'
+      + esc(t.n) + (t.cnt && c>0 ? '<span class="cnt">'+c+'</span>' : '') + '</button>';
+  }).join("");
+}
+
+/* =========================== 홈 =========================== */
+function renderHome(){
+  var act = DB.emps.filter(function(e){ return e.status!=="퇴사"; });
+  var working = DB.emps.filter(function(e){ return e.status==="재직"; }).length;
+  var rest = DB.emps.filter(function(e){ return e.status==="휴직"; }).length;
+  var left = DB.emps.filter(function(e){ return e.status==="퇴사"; }).length;
+  var g=0,u=0;
+  act.forEach(function(e){ g+=grantDays(e); u+=usedDays(e.id); });
+  var mKey = TODAY.getFullYear()+"-"+(TODAY.getMonth()+1<10?"0":"")+(TODAY.getMonth()+1);
+  var mSpend = DB.spends.filter(function(s){ return s.date.slice(0,7)===mKey; });
+  var mSum = mSpend.reduce(function(a,s){ return a+Number(s.amount); },0);
+  var ev = hrEvents();
+  var inCnt = ev.filter(function(x){return x.kind==="입사";}).length;
+  var outCnt= ev.filter(function(x){return x.kind==="퇴사";}).length;
+
+  var h='';
+  h+='<div class="sec-h"><h2>오늘 처리할 것</h2><p>기준일 '+ymd(TODAY)+' · 카드를 누르면 해당 탭이 그 조건으로 걸러져 열립니다</p></div>';
+  h+='<div class="grid gauto">'+TODOS.map(function(t){
+      var n=t.list().length;
+      return '<button class="todo'+(n>0?' hot':'')+'" data-act="todo" data-id="'+t.key+'">'
+        +'<div class="lab">'+esc(t.label)+'</div>'
+        +'<div class="num">'+n+'<small>'+t.unit+'</small></div>'
+        +'<div class="sub">'+esc(t.sub)+'</div></button>';
+    }).join("")+'</div>';
+
+  h+='<div class="sec-h"><h2>한눈에 보기</h2></div>';
+  h+='<div class="grid g4">'
+    +'<div class="kpi"><div class="lab">재직 인원</div><div class="num">'+working+'<small> 명</small></div>'
+      +'<div class="sub">휴직 '+rest+'명 · 퇴사 '+left+'명 (명부 전체 '+DB.emps.length+'명)</div></div>'
+    +'<div class="kpi"><div class="lab">이번 달 입·퇴사</div><div class="num">'+inCnt+'<small> / </small>'+outCnt+'</div>'
+      +'<div class="sub">입사 '+inCnt+'명 · 퇴사 '+outCnt+'명 ('+mKey+')</div></div>'
+    +'<div class="kpi"><div class="lab">연차 평균 소진율</div><div class="num">'+pct(u,g)+'<small> %</small></div>'
+      +'<div class="sub">사용 '+u+'일 ÷ 부여 '+g+'일 (재직·휴직 '+act.length+'명 기준)</div></div>'
+    +'<div class="kpi"><div class="lab">이번 달 카드 사용액</div><div class="num">'+nf(mSum)+'<small> 원</small></div>'
+      +'<div class="sub">'+mSpend.length+'건 ('+mKey+')</div></div>'
+    +'</div>';
+
+  /* 부서별 연차 소진율 */
+  var rows=DEPTS.map(function(dp){
+    var list=act.filter(function(e){ return e.dept===dp; });
+    var gg=0,uu=0; list.forEach(function(e){ gg+=grantDays(e); uu+=usedDays(e.id); });
+    return {dp:dp,n:list.length,g:gg,u:uu,p:pct(uu,gg)};
+  }).sort(function(a,b){ return b.p-a.p; });
+  h+='<div class="sec-h"><h2>부서별 연차 소진율</h2><p>승인된 연차·반차만 계산합니다. 병가·경조사·공가는 연차에서 빼지 않습니다.</p></div>';
+  h+='<div class="card"><div class="bars">'+rows.map(function(r){
+      var cls = r.p>=pct(u,g) ? "" : "o";
+      return '<div class="brow"><div>'+esc(r.dp)+' <span style="color:var(--muted)">'+r.n+'명</span></div>'
+        +'<div class="btrack"><div class="bfill '+cls+'" style="width:'+Math.max(2,r.p)+'%"></div></div>'
+        +'<div class="v">'+r.p+'% ('+r.u+'/'+r.g+'일)</div></div>';
+    }).join("")+'</div>'
+    +'<div class="note">분모는 그 부서 재직·휴직자의 <b>부여일수 합계</b>입니다(퇴사자 제외). '
+    +'전사 평균은 <b>'+pct(u,g)+'%</b>이고, 평균보다 낮은 부서는 주황색 막대입니다.</div></div>';
+
+  /* 이번 달 인사 이벤트 목록 */
+  h+='<div class="sec-h"><h2>이번 달 인사 이벤트</h2><p>'+mKey+' 기준 입사 · 수습 종료(입사 3개월) · 퇴사</p></div>';
+  h+='<div class="tw"><table><thead><tr><th>날짜</th><th>구분</th><th>이름</th><th>부서</th><th>직급</th><th>비고</th></tr></thead><tbody>'
+    +(ev.length? ev.map(function(x){
+      var b = x.kind==="입사"?"ok":(x.kind==="퇴사"?"err":"warn");
+      return '<tr><td>'+esc(x.date)+'</td><td><span class="bg '+b+'">'+esc(x.kind)+'</span></td>'
+        +'<td>'+avatar(x.emp.name)+'</td><td>'+esc(x.emp.dept)+'</td><td>'+esc(x.emp.rank)+'</td>'
+        +'<td style="color:var(--muted)">'+esc(x.emp.memo||"")+'</td></tr>';
+    }).join("") : '<tr><td colspan="6" class="empty">이번 달 인사 이벤트가 없습니다.</td></tr>')
+    +'</tbody></table></div>';
+
+  h+='<div class="callout">이 화면의 모든 인물·금액·거래처는 <b>교육용으로 지어낸 가상 자료</b>입니다. 실제 인사기록으로 사용하지 마세요.</div>';
+  $("#pane-home").innerHTML=h;
+}
+function avatar(name){
+  return '<span class="nm"><span class="av">'+esc(String(name||"?").charAt(0))+'</span>'+esc(name)+'</span>';
+}
+function sel(group,key,opts,label){
+  return '<label class="fl">'+esc(label)+'<select data-f="'+group+'.'+key+'">'
+    + opts.map(function(o){ return '<option value="'+esc(o)+'"'+(S[group][key]===o?" selected":"")+'>'+esc(o)+'</option>'; }).join("")
+    + '</select></label>';
+}
+function searchBox(group,ph){
+  return '<label class="fl">검색<input type="text" id="q-'+group+'" data-f="'+group+'.q" value="'+esc(S[group].q)+'" placeholder="'+esc(ph)+'" style="min-width:170px"></label>';
+}
+
+/* =========================== 인사기록 =========================== */
+function empFiltered(){
+  var evIds=null;
+  if(S.emp.event==="이번달"){ evIds={}; hrEvents().forEach(function(x){ evIds[x.emp.id]=1; }); }
+  var q=S.emp.q.trim();
+  return DB.emps.filter(function(e){
+    if(S.emp.dept!=="전체" && e.dept!==S.emp.dept) return false;
+    if(S.emp.status!=="전체" && e.status!==S.emp.status) return false;
+    if(S.emp.etype!=="전체" && e.etype!==S.emp.etype) return false;
+    if(evIds && !evIds[e.id]) return false;
+    if(q && (e.name+e.id+e.rank+e.dept).indexOf(q)<0) return false;
+    return true;
+  });
+}
+function renderEmp(){
+  var list=empFiltered();
+  var h='';
+  h+='<div class="sec-h"><h2>인사기록 카드</h2><p>가상 직원 '+DB.emps.length+'명 · 이름을 누르면 상세 카드가 열립니다</p></div>';
+  h+='<div class="bar no-print">'
+    + sel("emp","dept",["전체"].concat(DEPTS),"부서")
+    + sel("emp","status",["전체","재직","휴직","퇴사"],"재직상태")
+    + sel("emp","etype",["전체"].concat(ETYPES),"고용형태")
+    + sel("emp","event",["전체","이번달"],"인사 이벤트")
+    + searchBox("emp","이름 · 사번")
+    + '<div class="sp"></div><button class="btn pri" data-act="emp-new">+ 직원 등록</button></div>';
+  h+='<div class="note" style="margin:0 0 8px">표시 '+list.length+'명 / 전체 '+DB.emps.length+'명</div>';
+  h+='<div class="tw"><table><thead><tr><th>사번</th><th>이름</th><th>부서</th><th>직급</th><th>고용형태</th>'
+    +'<th>입사일</th><th class="num">근속(년)</th><th class="num">연차 잔여</th><th>상태</th><th class="no-print">관리</th></tr></thead><tbody>';
+  if(!list.length) h+='<tr><td colspan="10" class="empty">조건에 맞는 직원이 없습니다.</td></tr>';
+  list.forEach(function(e){
+    var g=grantDays(e), u=usedDays(e.id);
+    var b = e.status==="재직"?"ok":(e.status==="휴직"?"warn":"err");
+    h+='<tr><td>'+esc(e.id)+'</td>'
+      +'<td><button class="lnk" data-act="emp-view" data-id="'+e.id+'">'+avatar(e.name)+'</button></td>'
+      +'<td>'+esc(e.dept)+'</td><td>'+esc(e.rank)+'</td><td>'+esc(e.etype)+'</td>'
+      +'<td>'+esc(e.hire)+'</td><td class="num">'+tenureY(e)+'</td>'
+      +'<td class="num">'+(g-u)+' <span style="color:var(--muted)">/ '+g+'</span></td>'
+      +'<td><span class="bg '+b+'">'+esc(e.status)+'</span></td>'
+      +'<td class="no-print"><button class="btn sm" data-act="emp-edit" data-id="'+e.id+'">수정</button> '
+      +'<button class="btn sm danger" data-act="emp-del" data-id="'+e.id+'">삭제</button></td></tr>';
+  });
+  h+='</tbody></table></div>';
+  h+='<div class="note">연차 잔여 = 부여일수 − 승인된 연차·반차 사용일수. 부여일수는 <b>교육용 단순 계산식</b>으로 구합니다.</div>';
+
+  /* 부서 인원 */
+  var mx=1, dc=DEPTS.map(function(dp){
+    var n=DB.emps.filter(function(e){ return e.dept===dp && e.status!=="퇴사"; }).length;
+    if(n>mx) mx=n; return {dp:dp,n:n}; });
+  h+='<div class="sec-h"><h2>부서별 인원</h2><p>퇴사자 제외 · 재직 + 휴직 기준</p></div>';
+  h+='<div class="card"><div class="bars">'+dc.map(function(r){
+    return '<div class="brow"><div>'+esc(r.dp)+'</div><div class="btrack"><div class="bfill" style="width:'
+      +Math.round(r.n/mx*100)+'%"></div></div><div class="v">'+r.n+'명</div></div>'; }).join("")+'</div></div>';
+  $("#pane-emp").innerHTML=h;
+}
+
+/* =========================== 근태·휴가 =========================== */
+function leaveFiltered(){
+  var q=S.leave.q.trim();
+  return DB.leaves.filter(function(l){
+    if(S.leave.status!=="전체" && l.status!==S.leave.status) return false;
+    if(S.leave.type!=="전체" && l.type!==S.leave.type) return false;
+    if(S.leave.dept!=="전체" && empDept(l.emp)!==S.leave.dept) return false;
+    if(q && (empName(l.emp)+l.reason+l.id).indexOf(q)<0) return false;
+    return true;
+  }).sort(function(a,b){ return a.req<b.req?1:-1; });
+}
+/* 그 날 자리를 비우는 사람 목록 (반려 건 제외) */
+function absentOn(dateStr, dept){
+  var t=d(dateStr); if(!t) return [];
+  return DB.leaves.filter(function(l){
+    if(l.status==="반려") return false;
+    var a=d(l.s), z=d(l.e); if(!a||!z) return false;
+    if(t<a || t>z) return false;
+    if(dept && dept!=="전체" && empDept(l.emp)!==dept) return false;
+    return true;
+  });
+}
+function shiftMonth(mk,delta){
+  var y=+mk.slice(0,4), m=+mk.slice(5,7)-1+delta;
+  var dt=new Date(y,m,1);
+  var mm=dt.getMonth()+1;
+  return dt.getFullYear()+"-"+(mm<10?"0":"")+mm;
+}
+function renderAbsence(){
+  var mk=S.leave.month, dept=S.leave.dept;
+  var y=+mk.slice(0,4), m=+mk.slice(5,7);
+  var last=new Date(y,m,0).getDate();
+  var base=DB.emps.filter(function(e){
+    return e.status==="재직" && (dept==="전체"||e.dept===dept); }).length;
+  var warnN=Math.max(2,Math.ceil(base*0.1)), dangN=Math.max(3,Math.ceil(base*0.2));
+  var todayKey=ymd(TODAY);
+  var cols=[], mx=3, sumOk=0, sumPd=0, peak={n:0,ds:""};
+  for(var i=1;i<=last;i++){
+    var ds=mk+"-"+(i<10?"0":"")+i;
+    var ls=absentOn(ds,dept);
+    var ok=0,pd=0;
+    ls.forEach(function(l){ if(l.status==="승인") ok++; else pd++; });
+    var tot=ok+pd; if(tot>mx) mx=tot;
+    if(tot>peak.n) peak={n:tot,ds:ds};
+    sumOk+=ok; sumPd+=pd;
+    var wd=new Date(y,m-1,i).getDay();
+    cols.push({ds:ds,i:i,ok:ok,pd:pd,tot:tot,we:(wd===0||wd===6),td:(ds===todayKey)});
+  }
+  var h='<div class="sec-h"><h2>날짜별 부재 인원</h2>'
+    +'<p>휴가를 승인하기 전에 그 날 몇 명이 자리를 비우는지 먼저 확인하세요 · 막대를 누르면 그 날 명단이 열립니다</p></div>';
+  h+='<div class="card">';
+  h+='<div class="bar no-print" style="margin-top:0">'
+    +'<button class="btn sm" data-act="mon-prev">◀ 이전 달</button>'
+    +'<b style="color:var(--ink);font-size:15px;padding:0 4px">'+y+'년 '+m+'월</b>'
+    +'<button class="btn sm" data-act="mon-next">다음 달 ▶</button>'
+    +'<div class="sp"></div>'
+    +'<span style="font-size:12px;color:var(--muted)">부서 '+esc(dept)+' · 재직 '+base+'명 기준</span></div>';
+  h+='<div class="absw"><div class="absbody"><div class="abs">'
+    + cols.map(function(c){
+        var cls = c.tot>=dangN ? " r" : (c.tot>=warnN ? " w" : "");
+        var hOk = Math.round(c.ok/mx*100), hPd = Math.round(c.pd/mx*100);
+        return '<button class="abscol" data-act="abs-day" data-id="'+c.ds+'" title="'+c.ds+' 부재 '+c.tot+'명">'
+          +'<span class="cap">'+(c.tot?c.tot:"")+'</span>'
+          +'<span class="stk">'
+          + (c.pd? '<span class="spd" style="height:'+hPd+'%"></span>':'')
+          + (c.ok? '<span class="sok'+cls+'" style="height:'+hOk+'%"></span>':'')
+          +'</span></button>';
+      }).join("")
+    +'</div><div class="absx">'
+    + cols.map(function(c){ return '<div class="'+(c.td?"td":(c.we?"we":""))+'">'+c.i+'</div>'; }).join("")
+    +'</div></div></div>';
+  h+='<div class="lgd">'
+    +'<span><i style="background:var(--ink)"></i>승인된 휴가</span>'
+    +'<span><i style="background:var(--line-strong)"></i>승인 대기 (누르면 이렇게 된다는 예상)</span>'
+    +'<span><i style="background:var(--warn)"></i>'+warnN+'명 이상 (재직 인원의 10%)</span>'
+    +'<span><i style="background:var(--err)"></i>'+dangN+'명 이상 (재직 인원의 20%)</span></div>';
+  h+='<div class="note">이 달 부재 연인원 = 승인 '+sumOk+'명일 · 대기 '+sumPd+'명일. '
+    +(peak.n? '가장 많이 비는 날은 <b>'+peak.ds+' ('+peak.n+'명)</b>입니다. ':'이 달에는 등록된 휴가가 없습니다. ')
+    +'반차도 자리를 비우므로 1명으로 셉니다. 반려된 신청은 빠집니다.</div>';
+  h+='</div>';
+  return h;
+}
+function absDayView(ds){
+  var dept=S.leave.dept;
+  var ls=absentOn(ds,dept);
+  var base=DB.emps.filter(function(e){ return e.status==="재직" && (dept==="전체"||e.dept===dept); }).length;
+  var b='<div class="note" style="margin:0 0 10px">부서 '+esc(dept)+' · 재직 '+base+'명 중 <b>'+ls.length+'명</b>이 자리를 비웁니다.</div>';
+  if(!ls.length) b+='<div class="empty">이 날 휴가 신청이 없습니다.</div>';
+  else b+='<div class="tw"><table style="min-width:0"><thead><tr><th>이름</th><th>부서</th><th>유형</th><th>기간</th><th>상태</th></tr></thead><tbody>'
+    + ls.map(function(l){
+        var bb = l.status==="승인"?"ok":"warn";
+        return '<tr><td>'+avatar(empName(l.emp))+'</td><td>'+esc(empDept(l.emp))+'</td>'
+          +'<td>'+esc(l.type)+'</td><td>'+esc(l.s===l.e?l.s:(l.s+" ~ "+l.e))+'</td>'
+          +'<td><span class="bg '+bb+'">'+esc(l.status)+'</span></td></tr>'; }).join("")
+    + '</tbody></table></div>';
+  openModal(ds+" 부재 인원", b, '<button class="btn" data-act="close">닫기</button>');
+}
+function renderLeave(){
+  var list=leaveFiltered();
+  var pend=DB.leaves.filter(function(l){return l.status==="대기";}).length;
+  var h=renderAbsence();
+  h+='<div class="sec-h"><h2>휴가 신청 처리</h2><p>대기 '+pend+'건 · 승인한 건만 연차 사용일수에 반영됩니다</p></div>';
+  h+='<div class="bar no-print">'
+    + sel("leave","status",["전체","대기","승인","반려"],"처리상태")
+    + sel("leave","dept",["전체"].concat(DEPTS),"부서")
+    + sel("leave","type",["전체"].concat(LTYPES),"휴가 유형")
+    + searchBox("leave","이름 · 사유")
+    + '<div class="sp"></div><button class="btn pri" data-act="lv-new">+ 휴가 신청 등록</button></div>';
+  h+='<div class="note" style="margin:0 0 8px">표시 '+list.length+'건 / 전체 '+DB.leaves.length+'건</div>';
+  h+='<div class="tw"><table><thead><tr><th>신청일</th><th>이름</th><th>부서</th><th>유형</th><th>기간</th>'
+    +'<th class="num">일수</th><th>사유</th><th>상태</th><th class="no-print">처리</th></tr></thead><tbody>';
+  if(!list.length) h+='<tr><td colspan="9" class="empty">조건에 맞는 신청이 없습니다.</td></tr>';
+  list.forEach(function(l){
+    var b = l.status==="승인"?"ok":(l.status==="대기"?"warn":"err");
+    var tb = DEDUCT[l.type]?"info":"pp";
+    var period = l.s===l.e ? l.s : (l.s+" ~ "+l.e);
+    h+='<tr><td>'+esc(l.req)+'</td><td>'+avatar(empName(l.emp))+'</td><td>'+esc(empDept(l.emp))+'</td>'
+      +'<td><span class="bg '+tb+'">'+esc(l.type)+'</span></td><td>'+esc(period)+'</td>'
+      +'<td class="num">'+l.days
+      + (l.status==="대기" && leaveOver(l)>0
+          ? ' <span class="bg err">잔여 '+leaveOver(l)+'일 초과</span>' : '')
+      +'</td><td>'+esc(l.reason)+'</td>'
+      +'<td><span class="bg '+b+'">'+esc(l.status)+'</span></td>'
+      +'<td class="no-print">'
+      + (l.status==="대기"
+          ? '<button class="btn sm ok" data-act="lv-ok" data-id="'+l.id+'">승인</button> '
+           +'<button class="btn sm danger" data-act="lv-no" data-id="'+l.id+'">반려</button> '
+          : '<button class="btn sm" data-act="lv-back" data-id="'+l.id+'">대기로</button> ')
+      + '<button class="btn sm danger" data-act="lv-del" data-id="'+l.id+'">삭제</button></td></tr>';
+  });
+  h+='</tbody></table></div>';
+  h+='<div class="callout">연차에서 차감하는 유형은 <b>연차 · 반차</b>뿐입니다. 병가 · 경조사 · 공가는 따로 집계하며 연차 잔여를 줄이지 않습니다. '
+    +'남은 연차보다 많은 신청은 <b>등록은 되지만 승인이 막힙니다</b> — 일수를 줄이거나 반려하세요.</div>';
+
+  /* 직원별 연차 현황 */
+  var act=DB.emps.filter(function(e){ return e.status!=="퇴사"; });
+  if(S.leave.dept!=="전체") act=act.filter(function(e){ return e.dept===S.leave.dept; });
+  var rows=act.map(function(e){
+    var g=grantDays(e), u=usedDays(e.id);
+    return {e:e,g:g,u:u,r:g-u,p:pct(u,g),o:otherDays(e.id)};
+  }).sort(function(a,b){ return b.p-a.p; });
+  h+='<div class="sec-h"><h2>직원별 연차 현황</h2><p>교육용 단순 계산식 · 1년 미만은 근무 개월수 × 1일(최대 11일), 1년 이상은 15일 + (근속연수−1)÷2의 몫(최대 25일)</p></div>';
+  h+='<div class="tw"><table><thead><tr><th>이름</th><th>부서</th><th>입사일</th><th class="num">근속(년)</th>'
+    +'<th class="num">부여</th><th class="num">사용</th><th class="num">잔여</th><th class="num">소진율</th>'
+    +'<th class="num">기타휴가</th></tr></thead><tbody>';
+  rows.forEach(function(r){
+    h+='<tr><td>'+avatar(r.e.name)+'</td><td>'+esc(r.e.dept)+'</td><td>'+esc(r.e.hire)+'</td>'
+      +'<td class="num">'+tenureY(r.e)+'</td><td class="num">'+r.g+'</td><td class="num">'+r.u+'</td>'
+      +'<td class="num"><b>'+r.r+'</b></td><td class="num">'+r.p+'%</td>'
+      +'<td class="num" style="color:var(--muted)">'+r.o+'</td></tr>';
+  });
+  h+='</tbody></table></div>';
+  h+='<div class="note">대상 '+rows.length+'명 (퇴사자 제외). 기타휴가 = 승인된 병가·경조사·공가 일수 합계로, 연차 잔여와 무관합니다.</div>';
+
+  /* 연차 촉진 대상 */
+  var pts=promoTargets(), pend=pts.filter(function(x){ return promoOf(x.e)!=="사용 계획 접수"; }).length;
+  var pool=DB.emps.filter(function(e){ return e.status==="재직"; }).length;
+  h+='<div class="sec-h" id="secPromo"><h2>연차 촉진 대상</h2>'
+    +'<p>기준: <b>잔여 15일 이상 &amp; 소진율 25% 미만인 재직자</b> · 재직 '+pool+'명 중 <b>'+pts.length+'명</b>이 해당 (처리 남음 '+pend+'명)</p></div>';
+  h+='<div class="tw"><table><thead><tr><th>이름</th><th>부서</th><th class="num">부여</th>'
+    +'<th class="num">사용</th><th class="num">잔여</th><th class="num">소진율</th>'
+    +'<th>통보 상태</th><th class="no-print">처리</th></tr></thead><tbody>';
+  if(!pts.length) h+='<tr><td colspan="8" class="empty">촉진 대상이 없습니다.</td></tr>';
+  pts.forEach(function(x){
+    var st=promoOf(x.e), i=PROMO_STATES.indexOf(st);
+    var bb = i===0?"err":(i===1?"warn":"ok");
+    h+='<tr><td>'+avatar(x.e.name)+'</td>'
+      +'<td>'+esc(x.e.dept)+'</td><td class="num">'+x.g+'</td><td class="num">'+x.u+'</td>'
+      +'<td class="num"><b>'+x.r+'</b></td><td class="num">'+x.p+'%</td>'
+      +'<td><span class="bg '+bb+'">'+esc(st)+'</span></td>'
+      +'<td class="no-print">'
+      + (i<2 ? '<button class="btn sm ok" data-act="promo-next" data-id="'+x.e.id+'">'
+               +(i===0?"통보 완료로":"계획 접수로")+'</button> ' : '')
+      + (i>0 ? '<button class="btn sm" data-act="promo-back" data-id="'+x.e.id+'">되돌리기</button>' : '')
+      +'</td></tr>';
+  });
+  h+='</tbody></table></div>';
+  h+='<div class="note">통보 상태는 <b>통보 전 → 통보 완료 → 사용 계획 접수</b> 세 단계입니다. '
+    +'<b>사용 계획 접수</b> 단계가 되면 홈의 연차 촉진 처리 숫자에서 빠집니다.</div>';
+  h+='<div class="callout">근로기준법의 연차 사용 촉진 절차를 <b>교육용으로 단순화</b>한 연습 기능입니다. '
+    +'실제 촉진은 소멸 6개월 전 서면 통보 등 법정 일정과 서식을 따라야 하며, 이 앱은 메일·문서를 실제로 보내지 않습니다. '
+    +'<b>휴직자는 근로 제공 의무가 없어 대상에서 제외</b>했습니다.</div>';
+
+  /* 유형별 */
+  var byType=LTYPES.map(function(t){
+    var ls=DB.leaves.filter(function(l){ return l.type===t && l.status==="승인"; });
+    return {t:t,n:ls.length,dy:ls.reduce(function(a,l){return a+Number(l.days);},0)};
+  });
+  var mx=1; byType.forEach(function(r){ if(r.dy>mx) mx=r.dy; });
+  h+='<div class="sec-h"><h2>휴가 유형별 사용 (승인 건)</h2></div>';
+  h+='<div class="card"><div class="bars">'+byType.map(function(r){
+      return '<div class="brow"><div>'+esc(r.t)+'</div><div class="btrack"><div class="bfill'
+        +(DEDUCT[r.t]?"":" o")+'" style="width:'+Math.max(2,Math.round(r.dy/mx*100))+'%"></div></div>'
+        +'<div class="v">'+r.dy+'일 / '+r.n+'건</div></div>'; }).join("")+'</div>'
+      +'<div class="note">검은 막대 = 연차에서 차감되는 유형, 주황 막대 = 차감되지 않는 유형.</div></div>';
+  $("#pane-leave").innerHTML=h;
+}
+
+/* =========================== 비품·자산 =========================== */
+function assetFiltered(){
+  var q=S.asset.q.trim();
+  return DB.assets.filter(function(a){
+    if(S.asset.cat!=="전체" && a.cat!==S.asset.cat) return false;
+    if(S.asset.status==="반납지연"){ if(!assetLate(a)) return false; }
+    else if(S.asset.status!=="전체" && a.status!==S.asset.status) return false;
+    if(q && (a.id+a.item+a.model+(a.holder?empName(a.holder):"")).indexOf(q)<0) return false;
+    return true;
+  });
+}
+function renderAsset(){
+  var list=assetFiltered();
+  var late=DB.assets.filter(assetLate).length;
+  var outN=DB.assets.filter(function(a){return a.status==="불출중";}).length;
+  var total=DB.assets.reduce(function(a,x){ return a+Number(x.cost); },0);
+  var h='';
+  h+='<div class="sec-h"><h2>자산 대장</h2><p>총 '+DB.assets.length+'점 · 불출중 '+outN+'점 · 반납 지연 '+late+'점 · 취득가 합계 '+nf(total)+'원</p></div>';
+  h+='<div class="bar no-print">'
+    + sel("asset","cat",["전체"].concat(ACATS),"구분")
+    + sel("asset","status",["전체"].concat(ASTATUS).concat(["반납지연"]),"상태")
+    + searchBox("asset","자산번호 · 품목 · 사용자")
+    + '<div class="sp"></div><button class="btn pri" data-act="as-new">+ 자산 등록</button></div>';
+  h+='<div class="note" style="margin:0 0 8px">표시 '+list.length+'점 / 전체 '+DB.assets.length+'점</div>';
+  h+='<div class="tw"><table><thead><tr><th>자산번호</th><th>구분</th><th>품목</th><th>모델</th><th>취득일</th>'
+    +'<th class="num">취득가</th><th>상태</th><th>사용자</th><th>반납예정</th><th class="no-print">관리</th></tr></thead><tbody>';
+  if(!list.length) h+='<tr><td colspan="10" class="empty">조건에 맞는 자산이 없습니다.</td></tr>';
+  list.forEach(function(a){
+    var b = a.status==="불출중"?"info":(a.status==="보관중"?"ok":(a.status==="수리중"?"warn":"err"));
+    var lateFlag = assetLate(a);
+    h+='<tr><td>'+esc(a.id)+'</td><td>'+esc(a.cat)+'</td><td>'+esc(a.item)+'</td><td>'+esc(a.model)+'</td>'
+      +'<td>'+esc(a.acq)+'</td><td class="num">'+nf(a.cost)+'</td>'
+      +'<td><span class="bg '+b+'">'+esc(a.status)+'</span>'+(lateFlag?' <span class="bg err">지연</span>':'')+'</td>'
+      +'<td>'+(a.holder?esc(empName(a.holder)):'<span style="color:var(--muted)">-</span>')+'</td>'
+      +'<td'+(lateFlag?' style="color:var(--err);font-weight:600"':'')+'>'+esc(a.due||"-")+'</td>'
+      +'<td class="no-print">'
+      + (a.status==="불출중"
+          ? '<button class="btn sm ok" data-act="as-back" data-id="'+a.id+'">반납</button> '
+          : (a.status==="보관중" ? '<button class="btn sm" data-act="as-out" data-id="'+a.id+'">불출</button> ' : ''))
+      + '<button class="btn sm" data-act="as-edit" data-id="'+a.id+'">수정</button> '
+      + '<button class="btn sm danger" data-act="as-del" data-id="'+a.id+'">삭제</button></td></tr>';
+  });
+  h+='</tbody></table></div>';
+
+  /* 소모품 */
+  var low=DB.supplies.filter(function(p){ return p.stock<p.safe; });
+  h+='<div class="sec-h"><h2>소모품 재고</h2><p>안전재고보다 적은 품목 '+low.length+'개 · 총 '+DB.supplies.length+'품목</p></div>';
+  h+='<div class="tw"><table><thead><tr><th>품목</th><th>단위</th><th class="num">현재고</th><th class="num">안전재고</th>'
+    +'<th>상태</th><th class="no-print">입·출고</th></tr></thead><tbody>';
+  DB.supplies.forEach(function(p){
+    var short=p.stock<p.safe;
+    h+='<tr><td>'+esc(p.name)+'</td><td>'+esc(p.unit)+'</td><td class="num">'+p.stock+'</td>'
+      +'<td class="num" style="color:var(--muted)">'+p.safe+'</td>'
+      +'<td>'+(short?'<span class="bg err">부족</span>':'<span class="bg ok">충분</span>')+'</td>'
+      +'<td class="no-print"><button class="btn sm" data-act="sp-plus" data-id="'+p.id+'">+1</button> '
+      +'<button class="btn sm" data-act="sp-minus" data-id="'+p.id+'">−1</button></td></tr>';
+  });
+  h+='</tbody></table></div>';
+
+  /* 이력 */
+  var logs=DB.logs.slice().sort(function(a,b){ return a.date<b.date?1:-1; }).slice(0,20);
+  h+='<div class="sec-h"><h2>최근 불출·반납 이력</h2><p>최근 20건 (전체 '+DB.logs.length+'건)</p></div>';
+  h+='<div class="tw"><table><thead><tr><th>일자</th><th>자산번호</th><th>동작</th><th>대상자</th><th>비고</th></tr></thead><tbody>';
+  logs.forEach(function(g){
+    var b = g.act==="불출"?"info":(g.act==="반납"?"ok":(g.act==="폐기"?"err":"warn"));
+    h+='<tr><td>'+esc(g.date)+'</td><td>'+esc(g.asset)+'</td>'
+      +'<td><span class="bg '+b+'">'+esc(g.act)+'</span></td>'
+      +'<td>'+(g.emp?esc(empName(g.emp)):'<span style="color:var(--muted)">-</span>')+'</td>'
+      +'<td style="color:var(--muted)">'+esc(g.memo)+'</td></tr>';
+  });
+  h+='</tbody></table></div>';
+  $("#pane-asset").innerHTML=h;
+}
+
+/* =========================== 법인카드·경비 =========================== */
+function monthList(){
+  var m={}; DB.spends.forEach(function(s){ m[s.date.slice(0,7)]=1; });
+  return Object.keys(m).sort().reverse();
+}
+function spendFiltered(){
+  var q=S.card.q.trim();
+  return DB.spends.filter(function(s){
+    if(S.card.month!=="전체" && s.date.slice(0,7)!==S.card.month) return false;
+    if(S.card.dept!=="전체" && empDept(s.emp)!==S.card.dept) return false;
+    if(S.card.acct!=="전체" && s.acct!==S.card.acct) return false;
+    if(S.card.proof==="14일경과"){ if(!proofOverdue(s)) return false; }
+    else if(S.card.proof!=="전체" && s.proof!==S.card.proof) return false;
+    if(q && (s.merchant+empName(s.emp)+s.id).indexOf(q)<0) return false;
+    return true;
+  }).sort(function(a,b){ return a.date<b.date?1:-1; });
+}
+function renderCard(){
+  var list=spendFiltered();
+  var sum=list.reduce(function(a,s){ return a+Number(s.amount); },0);
+  var over=DB.spends.filter(proofOverdue).length;
+  var noProof=DB.spends.filter(function(s){ return s.proof==="미제출"; }).length;
+  var h='';
+  h+='<div class="sec-h"><h2>법인카드 사용내역</h2><p>가상 카드 4장 · 전체 '+DB.spends.length+'건 · 증빙 미제출 '+noProof+'건 (그중 14일 경과 '+over+'건)</p></div>';
+  h+='<div class="bar no-print">'
+    + sel("card","month",["전체"].concat(monthList()),"사용월")
+    + sel("card","dept",["전체"].concat(DEPTS),"부서")
+    + sel("card","acct",["전체"].concat(ACCTS),"계정과목")
+    + sel("card","proof",["전체","제출","미제출","14일경과"],"증빙")
+    + searchBox("card","가맹점 · 사용자")
+    + '<div class="sp"></div><button class="btn pri" data-act="sp-new">+ 사용내역 등록</button></div>';
+  h+='<div class="note" style="margin:0 0 8px">표시 '+list.length+'건 · 합계 <b>'+nf(sum)+'원</b> / 전체 '+DB.spends.length+'건</div>';
+  h+='<div class="tw"><table><thead><tr><th>사용일</th><th>카드</th><th>사용자</th><th>부서</th><th>가맹점</th>'
+    +'<th>계정과목</th><th class="num">금액</th><th>증빙</th><th class="no-print">처리</th></tr></thead><tbody>';
+  if(!list.length) h+='<tr><td colspan="9" class="empty">조건에 맞는 내역이 없습니다.</td></tr>';
+  list.forEach(function(s){
+    var od=proofOverdue(s);
+    h+='<tr><td>'+esc(s.date)+'</td><td>'+esc(cardLabel(s.card))+'</td><td>'+avatar(empName(s.emp))+'</td>'
+      +'<td>'+esc(empDept(s.emp))+'</td><td>'+esc(s.merchant)+'</td><td>'+esc(s.acct)+'</td>'
+      +'<td class="num">'+nf(s.amount)+'</td>'
+      +'<td>'+(s.proof==="제출"?'<span class="bg ok">제출</span>'
+              :'<span class="bg '+(od?"err":"warn")+'">미제출'+(od?" · 14일 경과":"")+'</span>')+'</td>'
+      +'<td class="no-print">'
+      + (s.proof==="미제출"
+          ? '<button class="btn sm ok" data-act="sp-proof" data-id="'+s.id+'">증빙 제출</button> '
+          : '<button class="btn sm" data-act="sp-unproof" data-id="'+s.id+'">제출 취소</button> ')
+      + '<button class="btn sm danger" data-act="sp-del" data-id="'+s.id+'">삭제</button></td></tr>';
+  });
+  h+='</tbody></table></div>';
+
+  /* 집계 */
+  var months=monthList().slice().sort();
+  var mx1=1, mrows=months.map(function(m){
+    var ls=DB.spends.filter(function(s){ return s.date.slice(0,7)===m; });
+    var v=ls.reduce(function(a,s){ return a+Number(s.amount); },0);
+    if(v>mx1) mx1=v; return {k:m,n:ls.length,v:v}; });
+  var mx2=1, drows=DEPTS.map(function(dp){
+    var ls=DB.spends.filter(function(s){ return empDept(s.emp)===dp; });
+    var v=ls.reduce(function(a,s){ return a+Number(s.amount); },0);
+    if(v>mx2) mx2=v; return {k:dp,n:ls.length,v:v}; }).sort(function(a,b){ return b.v-a.v; });
+  var allSum=DB.spends.reduce(function(a,s){ return a+Number(s.amount); },0);
+  var arows=ACCTS.map(function(ac){
+    var ls=DB.spends.filter(function(s){ return s.acct===ac; });
+    var v=ls.reduce(function(a,s){ return a+Number(s.amount); },0);
+    return {k:ac,n:ls.length,v:v,p:pct(v,allSum)}; }).sort(function(a,b){ return b.v-a.v; });
+
+  h+='<div class="sec-h"><h2>사용액 집계</h2><p>전체 '+DB.spends.length+'건 · 합계 '+nf(allSum)+'원 기준</p></div>';
+  h+='<div class="grid g2">';
+  h+='<div class="card"><h3 style="font-size:15px;margin-bottom:12px">월별 사용액</h3><div class="bars">'
+    + mrows.map(function(r){ return '<div class="brow"><div>'+esc(r.k)+'</div><div class="btrack">'
+        +'<div class="bfill" style="width:'+Math.max(2,Math.round(r.v/mx1*100))+'%"></div></div>'
+        +'<div class="v">'+nf(r.v)+'원</div></div>'; }).join("")
+    + '</div><div class="note">2026-09는 09-12까지의 내역만 들어 있습니다.</div></div>';
+  h+='<div class="card"><h3 style="font-size:15px;margin-bottom:12px">부서별 사용액</h3><div class="bars">'
+    + drows.map(function(r){ return '<div class="brow"><div>'+esc(r.k)+'</div><div class="btrack">'
+        +'<div class="bfill" style="width:'+Math.max(2,Math.round(r.v/mx2*100))+'%"></div></div>'
+        +'<div class="v">'+nf(r.v)+'원</div></div>'; }).join("")
+    + '</div><div class="note">카드 소지자의 소속 부서 기준입니다.</div></div>';
+  h+='</div>';
+  h+='<div class="sec-h"><h2>계정과목별 비중</h2></div>';
+  h+='<div class="tw"><table><thead><tr><th>계정과목</th><th class="num">건수</th><th class="num">금액</th>'
+    +'<th class="num">비중</th><th>분포</th></tr></thead><tbody>';
+  arows.forEach(function(r){
+    h+='<tr><td>'+esc(r.k)+'</td><td class="num">'+r.n+'</td><td class="num">'+nf(r.v)+'</td>'
+      +'<td class="num">'+r.p+'%</td>'
+      +'<td style="min-width:180px"><div class="btrack"><div class="bfill" style="width:'+Math.max(2,r.p)+'%"></div></div></td></tr>';
+  });
+  h+='</tbody></table></div>';
+  h+='<div class="note">비중의 분모는 전체 사용액 '+nf(allSum)+'원입니다.</div>';
+  h+='<div class="callout">카드번호는 <b>****-0001 ~ ****-0004</b> 형태의 가짜 번호이며, 가맹점·금액도 모두 지어낸 교육용 자료입니다.</div>';
+  $("#pane-card").innerHTML=h;
+}
+
+/* =========================== 모달 =========================== */
+var AFTER_OPEN=null;
+function openModal(title, body, foot, after){
+  $("#modal").innerHTML='<h3>'+esc(title)+'</h3><div class="bd">'+body+'</div><div class="ft">'+foot+'</div>';
+  $("#mask").classList.add("on");
+  AFTER_OPEN=after||null;
+  if(AFTER_OPEN) AFTER_OPEN();
+}
+function closeModal(){ $("#mask").classList.remove("on"); $("#modal").innerHTML=""; AFTER_OPEN=null; }
+function fld(id,label,html,full){ return '<label class="fl'+(full?" full":"")+'">'+esc(label)+html+'</label>'; }
+function opt(list,cur){ return list.map(function(o){
+  var v=(typeof o==="string")?o:o.v, t=(typeof o==="string")?o:o.t;
+  return '<option value="'+esc(v)+'"'+(String(cur)===String(v)?" selected":"")+'>'+esc(t)+'</option>'; }).join(""); }
+function val(id){ var el=document.getElementById(id); return el?el.value.trim():""; }
+function activeEmpOpts(){ return DB.emps.filter(function(e){ return e.status!=="퇴사"; })
+  .map(function(e){ return {v:e.id,t:e.name+" ("+e.dept+")"}; }); }
+function nextId(prefix,arr,width,from){
+  var mx=from||0;
+  arr.forEach(function(x){ var m=String(x.id).match(/(\d+)\s*$/); if(m && +m[1]>mx) mx=+m[1]; });
+  var n=String(mx+1); while(n.length<width) n="0"+n;
+  return prefix+n;
+}
+var FOOT_OK='<button class="btn" data-act="close">취소</button><button class="btn pri" data-act="submit">저장</button>';
+
+/* --- 직원 --- */
+function empForm(e){
+  e=e||{id:"",name:"",dept:DEPTS[0],rank:"사원",etype:"정규직",hire:ymd(TODAY),status:"재직",out:"",memo:""};
+  var isNew=!e.id;
+  var b='<div class="fgrid">'
+    + fld("f-name","이름 *",'<input type="text" id="f-name" value="'+esc(e.name)+'">')
+    + fld("f-dept","부서",'<select id="f-dept">'+opt(DEPTS,e.dept)+'</select>')
+    + fld("f-rank","직급",'<select id="f-rank">'+opt(RANKS,e.rank)+'</select>')
+    + fld("f-etype","고용형태",'<select id="f-etype">'+opt(ETYPES,e.etype)+'</select>')
+    + fld("f-hire","입사일 *",'<input type="date" id="f-hire" value="'+esc(e.hire)+'">')
+    + fld("f-status","재직상태",'<select id="f-status">'+opt(["재직","휴직","퇴사"],e.status)+'</select>')
+    + fld("f-out","퇴사일 (퇴사일 때만)",'<input type="date" id="f-out" value="'+esc(e.out)+'">')
+    + fld("f-memo","비고",'<input type="text" id="f-memo" value="'+esc(e.memo)+'">')
+    + '</div><div class="callout">교육용 가상 자료입니다. 실제 직원의 개인정보를 입력하지 마세요.</div>';
+  openModal(isNew?"직원 등록":"직원 정보 수정 — "+e.name, b, FOOT_OK, function(){
+    $("#modal").setAttribute("data-form", isNew?"emp-new":"emp-edit");
+    $("#modal").setAttribute("data-key", e.id||"");
+  });
+}
+function empSave(){
+  var m=$("#modal"), key=m.getAttribute("data-key"), isNew=!key;
+  var name=val("f-name"), hire=val("f-hire");
+  if(!name){ alert("이름을 입력하세요."); return; }
+  if(!hire){ alert("입사일을 입력하세요."); return; }
+  var dept=val("f-dept");
+  var rec=isNew?{}:empById(key);
+  if(!rec) return;
+  if(isNew){
+    var di=DEPTS.indexOf(dept)+1;
+    var pre="HB0"+di;
+    var mx=0; DB.emps.forEach(function(x){ if(x.id.indexOf(pre)===0){ var n=+x.id.slice(4); if(n>mx) mx=n; } });
+    rec.id=pre+"0"+(mx+1);
+    if((mx+1)>9) rec.id=pre+(mx+1);
+    rec.phone="010-0000-"+pad4(DB.emps.length+1);
+    rec.email=rec.id.toLowerCase()+"@hanbit-demo.example";
+    DB.emps.push(rec);
+  }
+  rec.name=name; rec.dept=dept; rec.rank=val("f-rank"); rec.etype=val("f-etype");
+  rec.hire=hire; rec.status=val("f-status"); rec.out=val("f-out"); rec.memo=val("f-memo");
+  if(rec.status!=="퇴사") rec.out="";
+  save(); closeModal(); render();
+}
+function empView(id){
+  var e=empById(id); if(!e) return;
+  var g=grantDays(e), u=usedDays(e.id), o=otherDays(e.id);
+  var mine=DB.assets.filter(function(a){ return a.holder===id; });
+  var spends=DB.spends.filter(function(s){ return s.emp===id; })
+    .sort(function(a,b){ return a.date<b.date?1:-1; }).slice(0,5);
+  var lv=DB.leaves.filter(function(l){ return l.emp===id; })
+    .sort(function(a,b){ return a.req<b.req?1:-1; }).slice(0,5);
+  var b='<dl class="dl">'
+    +'<dt>사번</dt><dd>'+esc(e.id)+'</dd>'
+    +'<dt>부서 / 직급</dt><dd>'+esc(e.dept)+' · '+esc(e.rank)+'</dd>'
+    +'<dt>고용형태</dt><dd>'+esc(e.etype)+'</dd>'
+    +'<dt>입사일</dt><dd>'+esc(e.hire)+' (근속 '+tenureY(e)+'년)</dd>'
+    +(e.out?'<dt>퇴사일</dt><dd>'+esc(e.out)+'</dd>':'')
+    +'<dt>재직상태</dt><dd>'+esc(e.status)+(e.memo?' — '+esc(e.memo):'')+'</dd>'
+    +'<dt>연락처</dt><dd>'+esc(e.phone)+' <span style="color:var(--muted)">(가상 번호)</span></dd>'
+    +'<dt>메일</dt><dd>'+esc(e.email)+'</dd>'
+    +'</dl>';
+  b+='<div class="grid g3" style="margin-top:16px">'
+    +'<div class="kpi"><div class="lab">연차 부여</div><div class="num">'+g+'<small> 일</small></div></div>'
+    +'<div class="kpi"><div class="lab">사용 (연차·반차)</div><div class="num">'+u+'<small> 일</small></div></div>'
+    +'<div class="kpi"><div class="lab">잔여</div><div class="num">'+(g-u)+'<small> 일</small></div>'
+      +'<div class="sub">기타휴가 '+o+'일 별도</div></div></div>';
+  b+='<h4 style="margin:18px 0 8px;font-size:14px">최근 휴가 신청</h4>';
+  b+= lv.length? '<div class="tw"><table style="min-width:0"><tbody>'+lv.map(function(l){
+      return '<tr><td>'+esc(l.s)+'</td><td>'+esc(l.type)+'</td><td class="num">'+l.days+'일</td><td>'+esc(l.status)+'</td></tr>';
+    }).join("")+'</tbody></table></div>' : '<div class="note">신청 내역이 없습니다.</div>';
+  b+='<h4 style="margin:18px 0 8px;font-size:14px">보유 자산 '+mine.length+'점</h4>';
+  b+= mine.length? '<div class="tw"><table style="min-width:0"><tbody>'+mine.map(function(a){
+      return '<tr><td>'+esc(a.id)+'</td><td>'+esc(a.item)+'</td><td>'+esc(a.model)+'</td>'
+        +'<td>'+(assetLate(a)?'<span class="bg err">반납 지연</span>':esc(a.status))+'</td></tr>';
+    }).join("")+'</tbody></table></div>' : '<div class="note">불출받은 자산이 없습니다.</div>';
+  b+='<h4 style="margin:18px 0 8px;font-size:14px">최근 카드 사용</h4>';
+  b+= spends.length? '<div class="tw"><table style="min-width:0"><tbody>'+spends.map(function(s){
+      return '<tr><td>'+esc(s.date)+'</td><td>'+esc(s.merchant)+'</td><td class="num">'+nf(s.amount)+'원</td>'
+        +'<td>'+esc(s.proof)+'</td></tr>';
+    }).join("")+'</tbody></table></div>' : '<div class="note">사용 내역이 없습니다.</div>';
+  openModal(e.name+" 인사기록 카드 (가상)", b,
+    '<button class="btn" data-act="close">닫기</button><button class="btn pri" data-act="emp-edit" data-id="'+e.id+'">수정</button>');
+}
+
+/* --- 휴가 --- */
+function leaveForm(){
+  var b='<div class="fgrid">'
+    + fld("f-emp","직원 *",'<select id="f-emp">'+opt(activeEmpOpts(),"")+'</select>')
+    + fld("f-type","휴가 유형",'<select id="f-type">'+opt(LTYPES,"연차")+'</select>')
+    + fld("f-s","시작일 *",'<input type="date" id="f-s" value="'+ymd(TODAY)+'">')
+    + fld("f-e","종료일 *",'<input type="date" id="f-e" value="'+ymd(TODAY)+'">')
+    + fld("f-days","일수 *",'<input type="number" id="f-days" step="0.5" min="0.5" value="1">')
+    + fld("f-status","처리상태",'<select id="f-status">'+opt(["대기","승인","반려"],"대기")+'</select>')
+    + fld("f-reason","사유",'<input type="text" id="f-reason" value="개인 사유">',true)
+    + '</div><div class="callout">연차·반차만 연차 잔여에서 차감됩니다. 날짜를 바꾸면 일수가 자동으로 다시 계산됩니다.</div>';
+  openModal("휴가 신청 등록", b, FOOT_OK, function(){
+    $("#modal").setAttribute("data-form","lv-new");
+    function recalc(){
+      var t=val("f-type");
+      if(t==="반차"){ document.getElementById("f-e").value=val("f-s"); document.getElementById("f-days").value=0.5; return; }
+      var a=d(val("f-s")), z=d(val("f-e"));
+      if(a&&z&&z>=a) document.getElementById("f-days").value=daysBetween(a,z)+1;
+    }
+    ["f-s","f-e","f-type"].forEach(function(i){
+      document.getElementById(i).addEventListener("change",recalc); });
+  });
+}
+function leaveSave(){
+  var emp=val("f-emp"), s=val("f-s"), e=val("f-e"), days=parseFloat(val("f-days"));
+  if(!emp){ alert("직원을 선택하세요."); return; }
+  if(!s||!e){ alert("기간을 입력하세요."); return; }
+  if(d(e)<d(s)){ alert("종료일이 시작일보다 빠릅니다."); return; }
+  if(!(days>0)){ alert("일수를 확인하세요."); return; }
+  DB.leaves.push({id:nextId("L",DB.leaves,2), emp:emp, type:val("f-type"), s:s, e:e, days:days,
+    reason:val("f-reason")||"개인 사유", status:val("f-status"), req:ymd(TODAY)});
+  save(); closeModal(); render();
+}
+
+/* --- 자산 --- */
+function assetForm(a){
+  var isNew=!a;
+  a=a||{id:"",cat:ACATS[0],item:"",model:"",acq:ymd(TODAY),cost:0,status:"보관중",holder:"",outDate:"",due:""};
+  var b='<div class="fgrid">'
+    + fld("f-cat","구분",'<select id="f-cat">'+opt(ACATS,a.cat)+'</select>')
+    + fld("f-item","품목 *",'<input type="text" id="f-item" value="'+esc(a.item)+'">')
+    + fld("f-model","모델",'<input type="text" id="f-model" value="'+esc(a.model)+'">')
+    + fld("f-acq","취득일",'<input type="date" id="f-acq" value="'+esc(a.acq)+'">')
+    + fld("f-cost","취득가 (원)",'<input type="number" id="f-cost" min="0" step="1000" value="'+(a.cost||0)+'">')
+    + fld("f-status","상태",'<select id="f-status">'+opt(ASTATUS,a.status)+'</select>')
+    + '</div><div class="callout">불출·반납은 목록의 <b>불출 / 반납</b> 버튼으로 처리하면 이력이 자동으로 쌓입니다.</div>';
+  openModal(isNew?"자산 등록":"자산 수정 — "+a.id, b, FOOT_OK, function(){
+    $("#modal").setAttribute("data-form", isNew?"as-new":"as-edit");
+    $("#modal").setAttribute("data-key", a.id||"");
+  });
+}
+function assetSave(){
+  var key=$("#modal").getAttribute("data-key"), isNew=!key;
+  var item=val("f-item");
+  if(!item){ alert("품목을 입력하세요."); return; }
+  var rec;
+  if(isNew){
+    var n=9001; while(DB.assets.some(function(x){ return x.id==="A-"+n; })) n++;
+    rec={id:"A-"+n, holder:"", outDate:"", due:""};
+    DB.assets.push(rec);
+  } else {
+    rec=null; DB.assets.forEach(function(x){ if(x.id===key) rec=x; });
+    if(!rec) return;
+  }
+  rec.cat=val("f-cat"); rec.item=item; rec.model=val("f-model");
+  rec.acq=val("f-acq"); rec.cost=parseInt(val("f-cost")||"0",10); rec.status=val("f-status");
+  if(rec.status!=="불출중"){ rec.holder=""; rec.outDate=""; rec.due=""; }
+  save(); closeModal(); render();
+}
+function assetOutForm(id){
+  var a=null; DB.assets.forEach(function(x){ if(x.id===id) a=x; }); if(!a) return;
+  var b='<div class="fgrid">'
+    + fld("f-emp","사용자 *",'<select id="f-emp">'+opt(activeEmpOpts(),"")+'</select>')
+    + fld("f-out","불출일 *",'<input type="date" id="f-out" value="'+ymd(TODAY)+'">')
+    + fld("f-due","반납 예정일 (비우면 상시 사용)",'<input type="date" id="f-due" value="">')
+    + fld("f-memo","비고",'<input type="text" id="f-memo" value="">')
+    + '</div>';
+  openModal("자산 불출 — "+a.id+" "+a.item, b, FOOT_OK, function(){
+    $("#modal").setAttribute("data-form","as-out"); $("#modal").setAttribute("data-key",id);
+  });
+}
+function assetOutSave(){
+  var id=$("#modal").getAttribute("data-key"), emp=val("f-emp"), od=val("f-out");
+  if(!emp||!od){ alert("사용자와 불출일을 입력하세요."); return; }
+  DB.assets.forEach(function(a){
+    if(a.id!==id) return;
+    a.status="불출중"; a.holder=emp; a.outDate=od; a.due=val("f-due");
+  });
+  DB.logs.push({id:nextId("G",DB.logs,2), asset:id, act:"불출", emp:emp, date:od, memo:val("f-memo")||"불출 처리"});
+  save(); closeModal(); render();
+}
+function assetReturn(id){
+  var a=null; DB.assets.forEach(function(x){ if(x.id===id) a=x; }); if(!a) return;
+  if(!confirm(a.id+" "+a.item+" 을(를) 반납 처리할까요?")) return;
+  DB.logs.push({id:nextId("G",DB.logs,2), asset:id, act:"반납", emp:a.holder, date:ymd(TODAY), memo:"반납 처리"});
+  a.status="보관중"; a.holder=""; a.outDate=""; a.due="";
+  save(); render();
+}
+
+/* --- 카드 사용내역 --- */
+function spendForm(){
+  var b='<div class="fgrid">'
+    + fld("f-date","사용일 *",'<input type="date" id="f-date" value="'+ymd(TODAY)+'">')
+    + fld("f-card","카드",'<select id="f-card">'+opt(DB.cards.map(function(c){
+        return {v:c.id,t:"****-"+c.last4+" ("+c.dept+")"}; }),"C1")+'</select>')
+    + fld("f-emp","사용자 *",'<select id="f-emp">'+opt(activeEmpOpts(),"")+'</select>')
+    + fld("f-acct","계정과목",'<select id="f-acct">'+opt(ACCTS,"소모품비")+'</select>')
+    + fld("f-merchant","가맹점 *",'<input type="text" id="f-merchant" value="">')
+    + fld("f-amount","금액 (원) *",'<input type="number" id="f-amount" min="0" step="100" value="0">')
+    + fld("f-proof","증빙",'<select id="f-proof">'+opt(["미제출","제출"],"미제출")+'</select>')
+    + '</div><div class="callout">교육용 가상 내역입니다. 실제 카드번호나 실제 거래 내역을 입력하지 마세요.</div>';
+  openModal("카드 사용내역 등록", b, FOOT_OK, function(){ $("#modal").setAttribute("data-form","sp-new"); });
+}
+function spendSave(){
+  var date=val("f-date"), emp=val("f-emp"), mc=val("f-merchant"), amt=parseInt(val("f-amount")||"0",10);
+  if(!date){ alert("사용일을 입력하세요."); return; }
+  if(!emp){ alert("사용자를 선택하세요."); return; }
+  if(!mc){ alert("가맹점을 입력하세요."); return; }
+  if(!(amt>0)){ alert("금액을 확인하세요."); return; }
+  DB.spends.push({id:nextId("S",DB.spends,2), date:date, card:val("f-card"), emp:emp,
+    merchant:mc, acct:val("f-acct"), amount:amt, proof:val("f-proof")});
+  save(); closeModal(); render();
+}
+
+/* =========================== 이벤트 =========================== */
+function delById(arr,id){ for(var i=0;i<arr.length;i++) if(arr[i].id===id){ arr.splice(i,1); return true; } return false; }
+
+document.addEventListener("click", function(ev){
+  var t=ev.target.closest ? ev.target.closest("[data-act]") : null;
+  if(!t) return;
+  var a=t.getAttribute("data-act"), id=t.getAttribute("data-id");
+
+  if(a==="tab"){ S.tab=id; render(); window.scrollTo(0,0); return; }
+  if(a==="close"){ closeModal(); return; }
+  if(a==="submit"){
+    var f=$("#modal").getAttribute("data-form");
+    if(f==="emp-new"||f==="emp-edit") empSave();
+    else if(f==="lv-new") leaveSave();
+    else if(f==="as-new"||f==="as-edit") assetSave();
+    else if(f==="as-out") assetOutSave();
+    else if(f==="sp-new") spendSave();
+    return;
+  }
+  if(a==="todo"){
+    TODOS.forEach(function(x){ if(x.key===id){ resetState(); x.apply(); S.tab=x.tab; } });
+    render();
+    if(id==="promo"){
+      var tgt=document.getElementById("secPromo");
+      if(tgt && tgt.scrollIntoView) tgt.scrollIntoView({block:"start"}); else window.scrollTo(0,0);
+    } else window.scrollTo(0,0);
+    return;
+  }
+  if(a==="promo-next"||a==="promo-back"){
+    DB.emps.forEach(function(e){
+      if(e.id!==id) return;
+      var i=PROMO_STATES.indexOf(promoOf(e));
+      i = a==="promo-next" ? Math.min(2,i+1) : Math.max(0,i-1);
+      e.promo=PROMO_STATES[i];
+    });
+    save(); render(); return;
+  }
+  /* 날짜별 부재 인원 */
+  if(a==="mon-prev"||a==="mon-next"){
+    S.leave.month=shiftMonth(S.leave.month, a==="mon-next"?1:-1); render(); return;
+  }
+  if(a==="abs-day"){ absDayView(id); return; }
+  /* 직원 */
+  if(a==="emp-new"){ empForm(null); return; }
+  if(a==="emp-edit"){ empForm(empById(id)); return; }
+  if(a==="emp-view"){ empView(id); return; }
+  if(a==="emp-del"){
+    var e=empById(id); if(!e) return;
+    /* 관련 기록이 있으면 삭제를 막는다 — 데이터안내.md 규칙 3 (기록은 지우지 않고 퇴사 처리) */
+    var n1=DB.leaves.filter(function(x){ return x.emp===id; }).length;
+    var n2=DB.assets.filter(function(x){ return x.holder===id; }).length;
+    var n3=DB.spends.filter(function(x){ return x.emp===id; }).length;
+    var n4=DB.logs.filter(function(x){ return x.emp===id; }).length;
+    var tot=n1+n2+n3+n4;
+    if(tot>0){
+      alert(e.name+" 님은 관련 기록이 있어 삭제할 수 없습니다. "
+        +"(휴가 "+n1+"건 · 보유 자산 "+n2+"점 · 카드 "+n3+"건 · 불출이력 "+n4+"건) "
+        +"대신 [수정]에서 재직상태를 '퇴사'로 바꾸세요. 기록이 그대로 보존됩니다.");
+      return;
+    }
+    if(!confirm(e.name+" 님을 명부에서 삭제할까요? (관련 기록이 없어 삭제해도 안전합니다)")) return;
+    delById(DB.emps,id); save(); render(); return; }
+  if(a==="lv-ok"){
+    var lv=null; DB.leaves.forEach(function(l){ if(l.id===id) lv=l; });
+    if(lv){
+      var over=leaveOver(lv);
+      if(over>0){
+        var le=empById(lv.emp), rest=le?(grantDays(le)-usedDays(le.id)):0;
+        alert(empName(lv.emp)+" 님의 남은 연차는 "+rest+"일입니다. "
+          +"이 신청은 "+lv.days+"일이라 "+over+"일을 초과합니다. "
+          +"승인할 수 없습니다 — 일수를 줄이거나 반려하세요.");
+        return;
+      }
+      lv.status="승인";
+    }
+    save(); render(); return;
+  }
+  if(a==="lv-no"||a==="lv-back"){
+    DB.leaves.forEach(function(l){ if(l.id===id) l.status=(a==="lv-no"?"반려":"대기"); });
+    save(); render(); return;
+  }
+  if(a==="lv-del"){ if(!confirm("이 휴가 신청을 삭제할까요?")) return; delById(DB.leaves,id); save(); render(); return; }
+  /* 자산 */
+  if(a==="as-new"){ assetForm(null); return; }
+  if(a==="as-edit"){ var ax=null; DB.assets.forEach(function(x){ if(x.id===id) ax=x; }); assetForm(ax); return; }
+  if(a==="as-out"){ assetOutForm(id); return; }
+  if(a==="as-back"){ assetReturn(id); return; }
+  if(a==="as-del"){ if(!confirm(id+" 자산을 대장에서 삭제할까요?")) return; delById(DB.assets,id); save(); render(); return; }
+  /* 소모품 */
+  if(a==="sp-plus"||a==="sp-minus"){
+    DB.supplies.forEach(function(p){ if(p.id===id) p.stock=Math.max(0,p.stock+(a==="sp-plus"?1:-1)); });
+    save(); render(); return;
+  }
+  /* 카드 */
+  if(a==="sp-new"){ spendForm(); return; }
+  if(a==="sp-proof"||a==="sp-unproof"){
+    DB.spends.forEach(function(s){ if(s.id===id) s.proof=(a==="sp-proof"?"제출":"미제출"); });
+    save(); render(); return;
+  }
+  if(a==="sp-del"){ if(!confirm("이 사용내역을 삭제할까요?")) return; delById(DB.spends,id); save(); render(); return; }
+});
+
+$("#mask").addEventListener("click", function(ev){ if(ev.target===$("#mask")) closeModal(); });
+document.addEventListener("keydown", function(ev){ if(ev.key==="Escape") closeModal(); });
+
+function setFilter(el){
+  var k=el.getAttribute("data-f"); if(!k) return;
+  var p=k.split("."); if(!S[p[0]]) return;
+  S[p[0]][p[1]]=el.value;
+  render();
+}
+document.addEventListener("change", function(ev){
+  if(ev.target.matches && ev.target.matches("select[data-f]")) setFilter(ev.target);
+});
+document.addEventListener("input", function(ev){
+  if(ev.target.matches && ev.target.matches("input[type=text][data-f]")){
+    var id=ev.target.id, pos=ev.target.selectionStart;
+    setFilter(ev.target);
+    var back=document.getElementById(id);
+    if(back){ back.focus(); try{ back.setSelectionRange(pos,pos); }catch(e){} }
+  }
+});
+
+$("#btnReset").addEventListener("click", resetAll);
+$("#btnPrint").addEventListener("click", function(){ window.print(); });
+$("#btnTheme").addEventListener("click", function(){
+  var cur=document.documentElement.getAttribute("data-theme");
+  var next = cur==="dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  try{ localStorage.setItem(STORE_KEY+"_theme", next); }catch(e){}
+});
+
+/* =========================== 그리기 =========================== */
+function render(){
+  renderTabs();
+  renderHome(); renderEmp(); renderLeave(); renderAsset(); renderCard();
+  ["home","emp","leave","asset","card"].forEach(function(k){
+    var el=$("#pane-"+k); if(el) el.classList.toggle("on", S.tab===k);
+  });
+  writeHash();
+}
+
+/* =========================== 시작 =========================== */
+try{ var th=localStorage.getItem(STORE_KEY+"_theme"); if(th) document.documentElement.setAttribute("data-theme",th); }catch(e){}
+load();
+readHash();
+render();
+window.addEventListener("hashchange", function(){ readHash(); render(); });
+</script>
+</body>
+</html>
