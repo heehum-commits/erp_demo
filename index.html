@@ -1425,6 +1425,29 @@ function empSave(){
   if(rec.status!=="퇴사") rec.out="";
   save(); closeModal(); render();
 }
+/* 그 달의 휴가를 유형별로 묶어 한 칸에 적는다 (승인 + 대기, 반려 제외) */
+function leaveOfMonth(id, mk){
+  var ok={}, wait={};
+  DB.leaves.forEach(function(l){
+    if(l.emp!==id || l.status==="반려") return;
+    if(String(l.s).slice(0,7)!==mk) return;
+    var box = (l.status==="승인") ? ok : wait;
+    box[l.type] = (box[l.type]||0) + Number(l.days);
+  });
+  var out=[];
+  LTYPES.forEach(function(t){ if(ok[t]) out.push(esc(t)+" "+ok[t]+"일"); });
+  LTYPES.forEach(function(t){ if(wait[t]) out.push('<span style="color:var(--warn)">'
+    +esc(t)+" "+wait[t]+"일(대기)</span>"); });
+  return out.length ? out.join(" · ") : '<span style="color:var(--muted)">—</span>';
+}
+/* 그 달에 급여 줄이 없는 이유 */
+function payMissReason(e, mk){
+  if(e.status==="휴직") return "휴직";
+  var first=d(mk+"-01"), last=new Date(+mk.slice(0,4), +mk.slice(5,7), 0);
+  if(d(e.hire) > last) return "입사 전";
+  if(e.out && d(e.out) < first) return "퇴사";
+  return "기록 없음";
+}
 function empView(id){
   var e=empById(id); if(!e) return;
   var g=grantDays(e), u=usedDays(e.id), o=otherDays(e.id);
@@ -1450,11 +1473,33 @@ function empView(id){
     +'<div class="kpi"><div class="lab">사용 (연차·반차)</div><div class="num">'+u+'<small> 일</small></div></div>'
     +'<div class="kpi"><div class="lab">잔여</div><div class="num">'+(g-u)+'<small> 일</small></div>'
       +'<div class="sub">기타휴가 '+o+'일 별도</div></div></div>';
+  /* 월별 요약 — 휴가와 급여를 같은 줄에서 본다 */
+  var months=PAY_MONTHS.slice().sort().reverse();
+  b+='<h4 style="margin:18px 0 8px;font-size:14px">월별 요약 (최근 '+months.length+'개월)</h4>';
+  b+='<div class="tw"><table style="min-width:0"><thead><tr><th>귀속월</th><th>휴가</th>'
+    +'<th class="num">지급총액</th><th class="num">실지급액</th><th class="no-print"></th></tr></thead><tbody>';
+  months.forEach(function(mk){
+    var pay=null; DB.pays.forEach(function(x){ if(x.emp===id && x.month===mk) pay=x; });
+    b+='<tr><td>'+esc(mk)+'</td><td>'+leaveOfMonth(id,mk)+'</td>';
+    if(pay){
+      b+='<td class="num">'+nf(pay.gross)+'</td>'
+       +'<td class="num"><b>'+nf(pay.net)+'</b></td>'
+       +'<td class="no-print"><button class="btn sm" data-act="pay-view" data-id="'+pay.id+'">명세서</button></td>';
+    } else {
+      b+='<td colspan="3" style="color:var(--muted)">급여 없음 ('+esc(payMissReason(e,mk))+')</td>';
+    }
+    b+='</tr>';
+  });
+  b+='</tbody></table></div>';
+  b+='<div class="note">연차는 <b>유급</b>이라 휴가를 써도 급여가 줄지 않습니다. '
+    +'급여가 줄어드는 건 무급결근일 때뿐입니다. '
+    +'기간이 두 달에 걸친 휴가는 <b>시작일이 속한 달</b>로 셉니다. '
+    +'주황색은 아직 <b>승인 대기</b> 중인 신청입니다.</div>';
   b+='<h4 style="margin:18px 0 8px;font-size:14px">최근 휴가 신청</h4>';
   b+= lv.length? '<div class="tw"><table style="min-width:0"><tbody>'+lv.map(function(l){
       return '<tr><td>'+esc(l.s)+'</td><td>'+esc(l.type)+'</td><td class="num">'+l.days+'일</td><td>'+esc(l.status)+'</td></tr>';
     }).join("")+'</tbody></table></div>' : '<div class="note">신청 내역이 없습니다.</div>';
-  b+='<h4 style="margin:18px 0 8px;font-size:14px">최근 급여</h4>';
+  b+='<h4 style="margin:18px 0 8px;font-size:14px">최근 급여 (명세서)</h4>';
   b+= mypay.length? '<div class="tw"><table style="min-width:0"><tbody>'+mypay.map(function(x){
       return '<tr><td>'+esc(x.month)+'</td><td class="num">'+nf(x.gross)+'원</td>'
         +'<td class="num" style="color:var(--muted)">-'+nf(x.ded)+'</td>'
