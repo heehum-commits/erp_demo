@@ -1,12 +1,12 @@
 /* 인사·총무 교육용 가상 데모 — 자동 검증
-   사용법:  npm run verify                (기본 앱 파일)
+   사용법:  npm run verify                (index.html)
             node verify.js 다른파일.html   (다른 파일 검사)
    기존 숫자가 그대로인지, 실행 오류가 없는지 확인합니다. */
 const fs = require("fs");
 const path = require("path");
 const { JSDOM } = require("jsdom");
 
-const FILE = process.argv[2] || "인사총무_교육용가상데모.html";
+const FILE = process.argv[2] || "index.html";
 const BASE = {                       // 기준값 (PRD.md 4-2절 / 3-1절)
   "직원": 28, "휴가": 50, "자산": 35, "소모품": 12, "카드내역": 60, "이력": 20, "급여": 73,
   "승인 대기 휴가": 10, "증빙 미제출": 5, "반납 지연 자산": 3,
