@@ -157,6 +157,17 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums}
 .dl dt{color:var(--muted); font-size:12px}
 .dl dd{margin:0; color:var(--ink)}
 
+/* AI 대화 */
+.chat{display:flex; flex-direction:column; gap:10px; max-height:320px; overflow-y:auto;
+  padding:4px 2px; margin-top:12px}
+.msg{max-width:86%; padding:9px 12px; border-radius:var(--r-lg); font-size:13.5px; line-height:1.65;
+  white-space:pre-wrap; word-break:break-word}
+.msg.me{align-self:flex-end; background:var(--ink); color:var(--canvas); border-bottom-right-radius:var(--r-sm)}
+.msg.ai{align-self:flex-start; background:var(--soft); color:var(--ink);
+  border:1px solid var(--line); border-bottom-left-radius:var(--r-sm)}
+.msg.err{align-self:flex-start; background:rgba(196,52,47,.10); color:var(--err); border:1px solid var(--line)}
+.exq{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px}
+
 /* AI 브리핑 */
 .pre{white-space:pre-wrap; word-break:break-all; font-size:12px; color:var(--body);
   background:var(--soft); border:1px solid var(--line); border-radius:var(--r);
@@ -855,7 +866,8 @@ function aiAsk(prompt, done){
     fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      body: JSON.stringify({ contents:
+        (typeof prompt === "string") ? [{ parts: [{ text: prompt }] }] : prompt })
     }).then(function(res){
       return res.json().then(function(json){
         if(res.status === 503) throw { busy: true };
@@ -890,6 +902,107 @@ function aiAsk(prompt, done){
   go();
 }
 
+/* ---- AI 에게 물어보기 ---- */
+var AI_CHAT = [];          /* {role:"user"|"model", text:""} — 새로고침하면 사라진다 */
+var AI_EXAMPLES = [
+  "이번 달에 가장 급한 일이 뭔가요?",
+  "증빙 미제출 중 가장 오래된 건은?",
+  "9월에 누가 제일 많이 쉬나요?",
+  "연차 촉진 대상자에게 보낼 안내문을 써주세요"
+];
+
+/* 대화에 함께 보낼 자료 — 처리할 것 + 직원 명부 요약 */
+function aiFactsFull(){
+  var L = [aiFacts(), "", "[직원 명부]"];
+  DB.emps.forEach(function(e){
+    var g = grantDays(e), u = usedDays(e.id);
+    L.push("- " + e.name + " / " + e.dept + " / " + e.rank + " / " + e.etype
+      + " / 입사 " + e.hire + " / " + e.status
+      + (e.status !== "퇴사" ? (" / 연차 잔여 " + (g - u) + "일(부여 " + g + ")") : ""));
+  });
+  return L.join("\n");
+}
+
+var AI_CHAT_HEAD =
+  "당신은 중소 물류회사 인사·총무 담당자를 돕는 조수입니다.\n"
++ "아래는 이 회사 시스템이 직접 센 오늘자 자료입니다.\n\n";
+var AI_CHAT_TAIL =
+  "\n\n답할 때 규칙\n"
++ "- 위 자료에 없는 숫자나 사람 이름을 지어내지 마세요.\n"
++ "- 자료에 없는 것을 물으면 '이 자료에는 없습니다' 라고 답하세요.\n"
++ "- 계산이 필요하면 위 숫자만 사용하세요.\n"
++ "- 짧고 쉽게, 존댓말로 답하세요. 표가 필요하면 간단한 글머리표를 쓰세요.\n"
++ "- 모든 자료는 교육용 가상 데이터입니다. 실제 인사 자료가 아닙니다.\n";
+
+function aiMsgHtml(m){
+  var cls = m.role === "user" ? "me" : (m.error ? "err" : "ai");
+  return '<div class="msg ' + cls + '">' + esc(m.text) + '</div>';
+}
+
+function aiChatRender(busy){
+  var b = '<div class="note">앱 안의 <b>교육용 가상 데이터</b>를 보고 답합니다. '
+        + '자료에 없는 것은 "이 자료에는 없습니다"라고 답하도록 해 두었습니다.</div>';
+  if(!AI_CHAT.length){
+    b += '<div class="exq">' + AI_EXAMPLES.map(function(q){
+      return '<button class="btn sm" data-act="ai-ex" data-id="' + esc(q) + '">' + esc(q) + '</button>';
+    }).join("") + '</div>';
+  }
+  b += '<div class="chat" id="aiChat">'
+     + AI_CHAT.map(aiMsgHtml).join("")
+     + (busy ? '<div class="msg ai" style="color:var(--muted)">답을 만드는 중입니다...</div>' : '')
+     + '</div>';
+  b += '<div class="bar" style="margin-top:12px">'
+     + '<input type="text" id="f-aiq" placeholder="궁금한 것을 적고 엔터를 누르세요" style="flex:1" '
+     + (busy ? 'disabled' : '') + '>'
+     + '<button class="btn pri" data-act="ai-send"' + (busy ? ' disabled' : '') + '>보내기</button></div>';
+  openModal("AI 에게 물어보기 (교육용 가상 데이터 기준)", b,
+    (AI_CHAT.length ? '<button class="btn" data-act="ai-chat-clear">대화 지우기</button>' : '')
+    + '<button class="btn" data-act="ai-key-form">키 설정</button>'
+    + '<button class="btn" data-act="close">닫기</button>');
+
+  var box = document.getElementById("aiChat");
+  if(box) box.scrollTop = box.scrollHeight;
+  var input = document.getElementById("f-aiq");
+  if(input && !busy){
+    input.focus();
+    input.addEventListener("keydown", function(ev){
+      if(ev.key === "Enter"){ ev.preventDefault(); aiChatSend(input.value); }
+    });
+  }
+}
+
+function aiChatOpen(){
+  if(!aiKey()){ aiKeyForm(); return; }
+  aiChatRender(false);
+}
+
+function aiChatSend(question){
+  question = (question || "").trim();
+  if(!question) return;
+  AI_CHAT.push({ role: "user", text: question });
+  aiChatRender(true);
+
+  var contents = [];
+  contents.push({ role: "user", parts: [{ text: AI_CHAT_HEAD + aiFactsFull() + AI_CHAT_TAIL }] });
+  contents.push({ role: "model", parts: [{ text: "네, 주어진 자료만 보고 답하겠습니다." }] });
+  AI_CHAT.forEach(function(m){
+    if(m.error) return;
+    contents.push({ role: m.role, parts: [{ text: m.text }] });
+  });
+
+  aiAsk(contents, function(err, res){
+    if(err){
+      AI_CHAT.push({ role: "model", error: true,
+        text: "답을 받지 못했습니다.\n" + (err.msg || "알 수 없는 오류")
+          + (err.quotaEnd ? "\n무료 한도는 하루가 지나면 다시 채워집니다." : "") });
+    } else {
+      AI_CHAT.push({ role: "model", text: res.text || "(답이 비어 있습니다)" });
+    }
+    aiChatRender(false);
+  });
+}
+
+/* ---- AI 기능 설정 ---- */
 function aiKeyForm(){
   var cur = aiKey();
   var b = '<div class="callout">'
@@ -967,6 +1080,7 @@ function renderHome(){
 
   h+='<div class="bar no-print" style="margin-top:14px">'
     +'<button class="btn pri" data-act="ai-brief">AI로 오늘 할 일 정리하기</button>'
+    +'<button class="btn" data-act="ai-chat">AI 에게 물어보기</button>'
     +'<span style="font-size:12px;color:var(--muted)">인터넷이 필요합니다 · 처음 한 번 Gemini API 키를 넣어야 합니다'
     +(aiKey()? ' · 키 저장됨('+esc(aiKeyMask(aiKey()))+')':'')+'</span>'
     +'<div class="sp"></div>'
@@ -1882,6 +1996,14 @@ document.addEventListener("click", function(ev){
   /* AI */
   if(a==="ai-brief"){ aiBrief(); return; }
   if(a==="ai-key-form"){ aiKeyForm(); return; }
+  if(a==="ai-chat"){ aiChatOpen(); return; }
+  if(a==="ai-ex"){ aiChatSend(id); return; }
+  if(a==="ai-send"){
+    var el=document.getElementById("f-aiq");
+    aiChatSend(el ? el.value : "");
+    return;
+  }
+  if(a==="ai-chat-clear"){ AI_CHAT=[]; aiChatRender(false); return; }
   if(a==="ai-key-save"){
     var v=(document.getElementById("f-aikey")||{}).value||"";
     v=v.trim();
