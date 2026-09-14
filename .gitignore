@@ -8,3 +8,6 @@ node_modules/
 .env.*
 !.env.example
 __pycache__/
+
+# Gemini 요약 결과물 (생성물)
+요약결과/
