@@ -37,11 +37,11 @@ except Exception:
 
 # 'gemini-flash-latest' 는 늘 최신 flash 를 가리키는 별칭이라 이름이 낡지 않는다.
 # 특정 버전을 고정하고 싶으면 -m 옵션으로 바꿔 쓴다. (2026-09-14 동작 확인: gemini-3.6-flash)
-DEFAULT_MODEL = "gemini-flash-latest"
+DEFAULT_MODEL = "gemini-3.6-flash"
 DEFAULT_PROMPT = "안녕하세요. 한 문장으로 자기소개를 해주세요."
 
 # 기본 모델이 붐벼서 503 이 나오면 순서대로 대신 써볼 모델 (2026-09-14 동작 확인)
-FALLBACK_MODELS = ["gemini-3.6-flash", "gemini-2.5-pro"]
+FALLBACK_MODELS = ["gemini-flash-latest", "gemini-2.5-pro"]
 RETRY_COUNT = 2      # 같은 모델로 다시 시도할 횟수
 RETRY_WAIT = 2       # 다시 시도하기 전 기다리는 초
 
@@ -102,6 +102,12 @@ def is_busy(error):
     return "503" in text or "UNAVAILABLE" in text or "high demand" in text
 
 
+def is_quota(error):
+    """429 - 무료 사용 횟수를 다 썼을 때. 기다려도 안 풀리므로 다른 모델로 넘어간다."""
+    text = str(error)
+    return "429" in text or "RESOURCE_EXHAUSTED" in text or "exceeded your current quota" in text
+
+
 def call_once(client, model, prompt):
     """한 모델로 한 번 호출한다. 실패하면 예외를 그대로 올린다."""
     return client.models.generate_content(model=model, contents=prompt)
@@ -121,8 +127,13 @@ def call_with_retry(client, model, prompt):
                 return name, response
             except Exception as error:
                 last_error = error
+                if is_quota(error):
+                    if index < len(candidates) - 1:
+                        print(f"[전환] '{name}' 의 무료 횟수를 다 썼습니다. "
+                              f"'{candidates[index + 1]}' 로 바꿔서 시도합니다.")
+                    break                      # 같은 모델로 다시 해도 소용없다
                 if not is_busy(error):
-                    raise                      # 붐빔이 아니면 바로 알린다
+                    raise                      # 붐빔도 한도도 아니면 바로 알린다
                 if attempt < RETRY_COUNT:
                     print(f"[재시도] '{name}' 가 붐빕니다. {RETRY_WAIT}초 뒤 다시 시도 "
                           f"({attempt + 1}/{RETRY_COUNT})")

@@ -41,8 +41,8 @@ APP_FILE = HERE / "index.html"
 OUT_DIR = HERE / "요약결과"
 TODAY = date(2026, 9, 14)          # 앱의 기준일과 맞춘다
 
-DEFAULT_MODEL = "gemini-flash-latest"
-FALLBACK_MODELS = ["gemini-3.6-flash", "gemini-2.5-pro"]
+DEFAULT_MODEL = "gemini-3.6-flash"
+FALLBACK_MODELS = ["gemini-flash-latest", "gemini-2.5-pro"]
 RETRY_COUNT = 2
 RETRY_WAIT = 2
 
@@ -255,7 +255,12 @@ def call_gemini(api_key, prompt):
                 response = client.models.generate_content(model=model, contents=prompt)
                 return model, (response.text or "").strip()
             except Exception as error:
-                busy = "503" in str(error) or "UNAVAILABLE" in str(error)
+                text = str(error)
+                quota = "429" in text or "RESOURCE_EXHAUSTED" in text
+                busy = "503" in text or "UNAVAILABLE" in text
+                if quota:
+                    print(f"[전환] '{model}' 의 무료 횟수를 다 썼습니다. 다른 모델로 시도합니다.")
+                    break
                 if not busy:
                     raise
                 if attempt < RETRY_COUNT:
@@ -263,7 +268,9 @@ def call_gemini(api_key, prompt):
                     time.sleep(RETRY_WAIT)
                 else:
                     print(f"[전환] '{model}' 가 계속 붐빕니다. 다른 모델로 시도합니다.")
-    raise RuntimeError("모든 모델이 응답하지 않았습니다.")
+    raise RuntimeError(
+        "모든 모델이 응답하지 않았습니다. "
+        "무료 사용 횟수를 다 썼다면 하루가 지나야 다시 채워집니다.")
 
 
 # ────────────────────────────────── 4. 실행

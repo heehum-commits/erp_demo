@@ -762,7 +762,9 @@ function renderTabs(){
 /* =========================== AI 브리핑 =========================== */
 /* 키는 이 브라우저에만 저장한다. 앱 파일(index.html)에는 절대 들어가지 않는다. */
 var AI_KEY_STORE = STORE_KEY + "_aikey";
-var AI_MODELS = ["gemini-flash-latest", "gemini-3.6-flash", "gemini-2.5-pro"];
+/* 순서대로 시도한다. gemini-flash-latest 는 무료 한도가 하루 20회로 적어서
+   한도가 넉넉한 gemini-3.6-flash 를 먼저 쓴다. (2026-09-14 확인) */
+var AI_MODELS = ["gemini-3.6-flash", "gemini-flash-latest", "gemini-2.5-pro"];
 
 function aiKey(){ try{ return localStorage.getItem(AI_KEY_STORE) || ""; }catch(e){ return ""; } }
 function aiKeySet(v){
@@ -857,6 +859,7 @@ function aiAsk(prompt, done){
     }).then(function(res){
       return res.json().then(function(json){
         if(res.status === 503) throw { busy: true };
+        if(res.status === 429) throw { quota: true };
         if(!res.ok) throw { msg: (json.error && json.error.message) || ("HTTP " + res.status) };
         return json;
       });
@@ -867,6 +870,13 @@ function aiAsk(prompt, done){
       }catch(e){}
       done(null, { model: model, text: text.trim() });
     }).catch(function(err){
+      if(err && err.quota){
+        /* 한도 초과는 기다려도 안 풀리므로 바로 다음 모델로 */
+        idx++; tries = 0;
+        if(idx < AI_MODELS.length){ setTimeout(go, 300); return; }
+        done({ quotaEnd: true, msg: "오늘 쓸 수 있는 무료 사용 횟수를 모두 썼습니다." });
+        return;
+      }
       if(err && err.busy){
         if(tries < 2){ tries++; setTimeout(go, 2000); return; }
         tries = 0; idx++;
@@ -909,9 +919,13 @@ function aiBrief(){
     var box = document.getElementById("aiBody");
     if(!box) return;
     if(err){
+      var help = err.quotaEnd
+        ? '무료 한도는 <b>하루가 지나면 다시 채워집니다.</b> 내일 다시 눌러보세요. '
+          + '급하면 Google AI Studio 에서 결제를 연결하거나 다른 키를 쓰시면 됩니다.'
+        : '키가 맞는지, 인터넷이 되는지 확인해 주세요.';
       box.innerHTML = '<div class="callout" style="border-left-color:var(--err)">'
         + '<b>AI 정리에 실패했습니다.</b><br>' + esc(err.msg || "알 수 없는 오류") + '<br><br>'
-        + '키가 맞는지, 인터넷이 되는지 확인해 주세요. 아래 숫자는 그대로 쓰실 수 있습니다.</div>'
+        + help + ' <b>아래 숫자는 그대로 쓰실 수 있습니다.</b></div>'
         + '<pre class="pre">' + esc(facts) + '</pre>';
       return;
     }
