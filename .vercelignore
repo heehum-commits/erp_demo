@@ -1,0 +1,13 @@
+# 배포에 올릴 필요 없는 것 (index.html 하나만 있으면 앱이 돌아간다)
+node_modules/
+__pycache__/
+dist/
+요약결과/
+백업/
+*.py
+*.bat
+verify.js
+*.md
+!README.md
+*.png
+data/
