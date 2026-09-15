@@ -1,16 +1,33 @@
-node_modules/
-.playwright-mcp/
-*.tmp
-백업/
-
-# API 키 등 비밀 값 — 절대 커밋하지 않음
+# ── 비밀 값: 절대 커밋하지 않음 ────────────────────────────
 .env
 .env.*
 !.env.example
-__pycache__/
 
-# Gemini 요약 결과물 (생성물)
+# ── 설치·캐시 (다시 받으면 되는 것) ────────────────────────
+node_modules/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.playwright-mcp/
+
+# ── 자동 생성물 (index.html 에서 다시 만들 수 있음) ────────
+dist/
 요약결과/
 
-# 링크 배포용 생성물
-dist/
+# ── 백업·임시 파일 ────────────────────────────────────────
+백업/
+*.bak
+*.tmp
+*.log
+
+# ── 윈도우 / OneDrive / 오피스가 만드는 찌꺼기 ────────────
+Thumbs.db
+desktop.ini
+.DS_Store
+~$*
+
+# ── 편집기·도구 개인 설정 ─────────────────────────────────
+.vscode/
+.idea/
+.claude/settings.local.json
