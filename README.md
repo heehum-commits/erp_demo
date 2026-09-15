@@ -42,7 +42,18 @@ npm install        # 최초 1회 (검증 도구 jsdom)
 npm run verify     # index.html 숫자·오류 자동 검사 — 수정했으면 반드시 실행
 npm run serve      # http://127.0.0.1:8765 로 띄워 보기
 python build_artifact.py   # claude.ai 링크 배포용 dist/artifact.html 생성
+python gemini_test.py      # .env 의 API 키로 Gemini 연동이 되는지 5단계 점검
 ```
+
+## AI(Gemini) 연동 확인하는 법
+
+| 확인 위치 | 방법 | 쓰는 키 |
+|---|---|---|
+| **내 컴퓨터(개발용)** | `연결테스트.bat` 더블클릭 (= `python gemini_test.py`) | `.env` 의 `gemini_api_key` |
+| **앱 화면** | 홈 > AI 브리핑 > **키 설정** > **연결 테스트** | 화면에서 넣은 키 (그 브라우저에만 저장) |
+
+`.env` 의 키는 **파이썬 도구 전용**입니다. 앱(`index.html`)에는 키가 들어가지 않으므로,
+앱에서 AI를 쓸 때는 화면에서 키를 한 번 넣어야 합니다.
 
 ## 문서
 
